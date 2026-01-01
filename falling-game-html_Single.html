@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sky Fall Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(to bottom, #60a5fa, #2563eb);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .score-display {
+            display: flex;
+            gap: 50px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .game-canvas-wrapper {
+            position: relative;
+            border: 4px solid white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        #gameCanvas {
+            display: block;
+            background: #7dd3fc;
+        }
+
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .screen-content {
+            text-align: center;
+            color: white;
+            padding: 40px;
+        }
+
+        .screen-content h1 {
+            font-size: 48px;
+            margin-bottom: 30px;
+        }
+
+        .screen-content h2 {
+            font-size: 28px;
+            margin: 20px 0 30px;
+        }
+
+        .screen-content p {
+            font-size: 20px;
+            margin: 10px 0;
+        }
+
+        .screen-content .stat {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-start {
+            background: #22c55e;
+            color: white;
+        }
+
+        .btn-start:hover {
+            background: #16a34a;
+        }
+
+        .btn-restart {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-restart:hover {
+            background: #2563eb;
+        }
+
+        .controls {
+            color: white;
+            text-align: center;
+        }
+
+        .controls-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .controls-hint {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="score-display">
+            <div class="score-item">Score: <span id="score">0</span></div>
+            <div class="score-item">Coins: <span id="coins">0</span></div>
+        </div>
+        
+        <div class="game-canvas-wrapper">
+            <canvas id="gameCanvas" width="400" height="600"></canvas>
+            
+            <!-- Intro Screen -->
+            <div id="introScreen" class="overlay-screen">
+                <div class="screen-content">
+                    <h1>Welcome!</h1>
+                    <p>Avoid the obstacles and collect coins.</p>
+                    <p>Hold the highest score for 24 hours to win the cash prize!</p>
+                    <h2>Good Luck!</h2>
+                    <button id="startButton" class="btn btn-start">Start Game</button>
+                </div>
+            </div>
+            
+            <!-- Game Over Screen -->
+            <div id="gameOverScreen" class="overlay-screen" style="display: none;">
+                <div class="screen-content">
+                    <h1>Game Over!</h1>
+                    <p class="stat">High Score: <span id="finalHighScore">0</span></p>
+                    <p class="stat">Score: <span id="finalScore">0</span></p>
+                    <p class="stat">Coins: <span id="finalCoins">0</span></p>
+                    <p class="stat">Rank: <span id="finalRank">Calculating...</span></p>
+                    <button id="restartButton" class="btn btn-restart">Play Again</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div class="controls-title">Controls:</div>
+            <div>← → Arrow Keys to Move</div>
+            <div class="controls-hint">Avoid obstacles and collect coins!</div>
+        </div>
+    </div>
+    
+    <script>
+        // Game constants
+        const PLAYER_SIZE = 30;
+        const HITBOX_SIZE = 20;
+        const HITBOX_OFFSET = 5;
+        const OBSTACLE_WIDTH = 80;
+        const OBSTACLE_HEIGHT = 20;
+        const COIN_SIZE = 20;
+        const GAME_WIDTH = 400;
+        const GAME_HEIGHT = 600;
+
+        // Game state
+        let player = { x: 175, y: 100 };
+        let obstacles = [];
+        let coins = [];
+        let score = 0;
+        let currency = 0;
+        let gameOver = false;
+        let showIntro = true;
+        let cameraY = 0;
+        let highScore = 0;
+        let lastSpawnY = 0;
+        let keysPressed = { left: false, right: false };
+        let gameLoopInterval = null;
+        let globalHighScore = 0;
+        let rank = null;
+        let storageLoadedRef = false;
+
+        // Get DOM elements
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const introScreen = document.getElementById('introScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const scoreDisplay = document.getElementById('score');
+        const coinsDisplay = document.getElementById('coins');
+        const finalScoreDisplay = document.getElementById('finalScore');
+        const finalCoinsDisplay = document.getElementById('finalCoins');
+        const finalHighScoreDisplay = document.getElementById('finalHighScore');
+        const finalRankDisplay = document.getElementById('finalRank');
+
+        // Load high score from localStorage and storage
+        async function loadHighScore() {
+            const saved = localStorage.getItem('highScore');
+            if (saved) {
+                highScore = parseInt(saved);
+            }
+            
+            // Load scores from persistent storage
+            if (!storageLoadedRef && typeof window.storage !== 'undefined') {
+                storageLoadedRef = true;
+                try {
+                    // Load personal high score
+                    const personalScore = await window.storage.get('personal-high-score');
+                    if (personalScore) {
+                        const storageScore = parseInt(personalScore.value);
+                        if (storageScore > highScore) {
+                            highScore = storageScore;
+                            localStorage.setItem('highScore', highScore.toString());
+                        }
+                    }
+
+                    // Load global high score
+                    const globalScore = await window.storage.get('global-high-score', true);
+                    if (globalScore) {
+                        globalHighScore = parseInt(globalScore.value);
+                    }
+                } catch (error) {
+                    console.log('No previous scores found in storage');
+                }
+            }
+        }
+
+        // Save high score to localStorage and storage
+        async function saveHighScore() {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('highScore', highScore.toString());
+                
+                // Save to persistent storage if available
+                if (typeof window.storage !== 'undefined') {
+                    try {
+                        await window.storage.set('personal-high-score', score.toString());
+                    } catch (error) {
+                        console.error('Failed to save high score:', error);
+                    }
+                }
+            }
+
+            // Update global high score if needed
+            if (typeof window.storage !== 'undefined' && score > globalHighScore) {
+                globalHighScore = score;
+                try {
+                    await window.storage.set('global-high-score', score.toString(), true);
+                } catch (error) {
+                    console.error('Failed to save global high score:', error);
+                }
+            }
+        }
+
+        // Calculate rank
+        async function calculateRank() {
+            if (typeof window.storage === 'undefined') {
+                rank = 1;
+                return;
+            }
+
+            try {
+                const allScoresKeys = await window.storage.list('personal-high-score', false);
+                const scores = [];
+                
+                for (const key of allScoresKeys.keys) {
+                    try {
+                        const result = await window.storage.get(key);
+                        if (result) {
+                            scores.push(parseInt(result.value));
+                        }
+                    } catch (e) {
+                        // Skip invalid entries
+                    }
+                }
+                
+                scores.sort((a, b) => b - a);
+                const userRank = scores.findIndex(s => s <= Math.max(score, highScore)) + 1;
+                rank = userRank || scores.length + 1;
+            } catch (error) {
+                console.error('Failed to calculate rank:', error);
+                rank = 1;
+            }
+        }
+
+        // Start game
+        function startGame() {
+            showIntro = false;
+            introScreen.style.display = 'none';
+            gameLoop();
+        }
+
+        // Restart game
+        function restartGame() {
+            player = { x: 175, y: 100 };
+            obstacles = [];
+            coins = [];
+            score = 0;
+            currency = 0;
+            cameraY = 0;
+            lastSpawnY = 0;
+            gameOver = false;
+            keysPressed = { left: false, right: false };
+            
+            gameOverScreen.style.display = 'none';
+            scoreDisplay.textContent = '0';
+            coinsDisplay.textContent = '0';
+            
+            gameLoop();
+        }
+
+        // Draw stick figure player
+        function drawPlayer() {
+            const screenY = player.y - cameraY;
+            
+            ctx.save();
+            ctx.translate(player.x, screenY);
+            
+            // Head
+            ctx.beginPath();
+            ctx.arc(15, 6, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#FFD1A4';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // Body
+            ctx.beginPath();
+            ctx.moveTo(15, 10);
+            ctx.lineTo(15, 20);
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Arms
+            ctx.beginPath();
+            ctx.moveTo(15, 13);
+            ctx.lineTo(10, 16);
+            ctx.moveTo(15, 13);
+            ctx.lineTo(20, 16);
+            ctx.stroke();
+            
+            // Legs
+            ctx.beginPath();
+            ctx.moveTo(15, 20);
+            ctx.lineTo(11, 27);
+            ctx.moveTo(15, 20);
+            ctx.lineTo(19, 27);
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        // Draw obstacles
+        function drawObstacles() {
+            ctx.fillStyle = '#374151';
+            obstacles.forEach(obs => {
+                const screenY = obs.y - cameraY;
+                ctx.fillRect(obs.x, screenY, OBSTACLE_WIDTH, OBSTACLE_HEIGHT);
+                ctx.strokeStyle = '#1f2937';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(obs.x, screenY, OBSTACLE_WIDTH, OBSTACLE_HEIGHT);
+            });
+        }
+
+        // Draw coins
+        function drawCoins() {
+            coins.forEach(coin => {
+                const screenY = coin.y - cameraY;
+                ctx.beginPath();
+                ctx.arc(coin.x + COIN_SIZE / 2, screenY + COIN_SIZE / 2, COIN_SIZE / 2, 0, Math.PI * 2);
+                ctx.fillStyle = '#fbbf24';
+                ctx.fill();
+                ctx.strokeStyle = '#d97706';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+
+        // Update game state
+        function update() {
+            if (gameOver || showIntro) return;
+            
+            // Move player down
+            player.y += 2;
+            
+            // Handle horizontal movement
+            if (keysPressed.left) {
+                player.x = Math.max(0, player.x - 5);
+            }
+            if (keysPressed.right) {
+                player.x = Math.min(GAME_WIDTH - PLAYER_SIZE, player.x + 5);
+            }
+            
+            // Update camera
+            cameraY += 2;
+            
+            // Increase score
+            score += 1;
+            scoreDisplay.textContent = score;
+            
+            // Spawn obstacles and coins
+            const currentInterval = Math.floor(player.y / 100);
+            const lastInterval = Math.floor(lastSpawnY / 100);
+            
+            if (currentInterval > lastInterval) {
+                obstacles.push({
+                    x: Math.random() * (GAME_WIDTH - OBSTACLE_WIDTH),
+                    y: player.y + GAME_HEIGHT - 100,
+                    id: Date.now()
+                });
+                
+                if (Math.random() < 0.5) {
+                    coins.push({
+                        x: Math.random() * (GAME_WIDTH - COIN_SIZE),
+                        y: player.y + GAME_HEIGHT - 50,
+                        id: Date.now() + Math.random()
+                    });
+                }
+                
+                lastSpawnY = player.y;
+            }
+            
+            // Filter out off-screen obstacles and coins
+            obstacles = obstacles.filter(obs => obs.y - cameraY > -OBSTACLE_HEIGHT - 200);
+            coins = coins.filter(coin => coin.y - cameraY > -COIN_SIZE - 200);
+            
+            // Check collisions
+            checkCollisions();
+        }
+
+        // Check collisions
+        function checkCollisions() {
+            // Check obstacle collisions
+            obstacles.forEach(obs => {
+                if (
+                    player.x + HITBOX_OFFSET < obs.x + OBSTACLE_WIDTH &&
+                    player.x + HITBOX_OFFSET + HITBOX_SIZE > obs.x &&
+                    player.y + HITBOX_OFFSET < obs.y + OBSTACLE_HEIGHT &&
+                    player.y + HITBOX_OFFSET + HITBOX_SIZE > obs.y
+                ) {
+                    endGame();
+                }
+            });
+            
+            // Check coin collisions
+            coins.forEach(coin => {
+                if (
+                    player.x < coin.x + COIN_SIZE &&
+                    player.x + PLAYER_SIZE > coin.x &&
+                    player.y < coin.y + COIN_SIZE &&
+                    player.y + PLAYER_SIZE > coin.y
+                ) {
+                    currency += 1;
+                    coinsDisplay.textContent = currency;
+                    coins = coins.filter(c => c.id !== coin.id);
+                }
+            });
+        }
+
+        // End game
+        async function endGame() {
+            gameOver = true;
+            await saveHighScore();
+            await calculateRank();
+            
+            finalScoreDisplay.textContent = score;
+            finalCoinsDisplay.textContent = currency;
+            finalHighScoreDisplay.textContent = highScore;
+            finalRankDisplay.textContent = rank ? `#${rank}` : 'Calculating...';
+            
+            gameOverScreen.style.display = 'flex';
+            
+            if (gameLoopInterval) {
+                clearInterval(gameLoopInterval);
+            }
+        }
+
+        // Render game
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#7dd3fc';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+            
+            // Draw game objects
+            drawObstacles();
+            drawCoins();
+            drawPlayer();
+        }
+
+        // Main game loop
+        function gameLoop() {
+            if (gameLoopInterval) {
+                clearInterval(gameLoopInterval);
+            }
+            
+            gameLoopInterval = setInterval(() => {
+                update();
+                render();
+            }, 1000 / 60);
+        }
+
+        // Event listeners
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', restartGame);
+
+        document.addEventListener('keydown', (e) => {
+            if (gameOver || showIntro) return;
+            if (e.key === 'ArrowLeft') keysPressed.left = true;
+            if (e.key === 'ArrowRight') keysPressed.right = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') keysPressed.left = false;
+            if (e.key === 'ArrowRight') keysPressed.right = false;
+        });
+
+        // Initialize
+        loadHighScore();
+        render();
+    </script>
+</body>
+</html>
