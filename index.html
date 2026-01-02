@@ -23,6 +23,97 @@
             overflow: hidden;
         }
 
+        /* Menu styles */
+        .menu-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            z-index: 2000;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transition: background 0.2s;
+        }
+
+        .menu-button:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .menu-button span {
+            width: 25px;
+            height: 3px;
+            background: #2563eb;
+            border-radius: 2px;
+        }
+
+        .menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1999;
+            display: none;
+        }
+
+        .menu-panel {
+            position: fixed;
+            top: 0;
+            right: -300px;
+            width: 300px;
+            height: 100%;
+            background: white;
+            z-index: 2001;
+            transition: right 0.3s ease;
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
+            overflow-y: auto;
+        }
+
+        .menu-panel.open {
+            right: 0;
+        }
+
+        .menu-header {
+            padding: 20px;
+            background: #2563eb;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .menu-item {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: background 0.2s;
+        }
+
+        .menu-item:hover {
+            background: #f3f4f6;
+        }
+
+        .menu-item-icon {
+            font-size: 24px;
+        }
+
+        .menu-item-text {
+            font-size: 18px;
+            color: #1f2937;
+        }
+
         .game-container {
             display: flex;
             flex-direction: column;
@@ -321,6 +412,41 @@
         <div id="leftButton" class="touch-button">◀ LEFT</div>
         <div id="rightButton" class="touch-button">RIGHT ▶</div>
     </div>
+
+    <!-- Menu Button -->
+    <button id="menuButton" class="menu-button">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <!-- Menu Overlay -->
+    <div id="menuOverlay" class="menu-overlay"></div>
+
+    <!-- Menu Panel -->
+    <div id="menuPanel" class="menu-panel">
+        <div class="menu-header">Menu</div>
+        <div class="menu-item" id="menuProfile">
+            <div class="menu-item-icon">👤</div>
+            <div class="menu-item-text">Profile</div>
+        </div>
+        <div class="menu-item" id="menuShare">
+            <div class="menu-item-icon">📤</div>
+            <div class="menu-item-text">Share</div>
+        </div>
+        <div class="menu-item" id="menuLogin">
+            <div class="menu-item-icon">🔐</div>
+            <div class="menu-item-text">Login</div>
+        </div>
+        <div class="menu-item" id="menuHowToPlay">
+            <div class="menu-item-icon">❓</div>
+            <div class="menu-item-text">How to Play</div>
+        </div>
+        <div class="menu-item" id="menuFeedback">
+            <div class="menu-item-icon">💬</div>
+            <div class="menu-item-text">Feedback/Bug Report</div>
+        </div>
+    </div>
     
     <script type="module">
         // Import Firebase
@@ -374,6 +500,7 @@
         let currentRank = null;
         let attemptsRemaining = localStorage.getItem('attemptsRemaining') !== null ? parseInt(localStorage.getItem('attemptsRemaining')) : 1;
         let attemptsUsedToday = 0;
+        let totalCoins = 0;
         let resetTime = localStorage.getItem('resetTime') || null;
         let countdownInterval = null;
         let isAuthenticating = false;
@@ -406,6 +533,14 @@
         const countdownDisplay = document.getElementById('countdown');
         const leftButton = document.getElementById('leftButton');
         const rightButton = document.getElementById('rightButton');
+        const menuButton = document.getElementById('menuButton');
+        const menuOverlay = document.getElementById('menuOverlay');
+        const menuPanel = document.getElementById('menuPanel');
+        const menuProfile = document.getElementById('menuProfile');
+        const menuShare = document.getElementById('menuShare');
+        const menuLogin = document.getElementById('menuLogin');
+        const menuHowToPlay = document.getElementById('menuHowToPlay');
+        const menuFeedback = document.getElementById('menuFeedback');
 
         // Generate a unique device ID
         function generateDeviceId() {
@@ -415,6 +550,51 @@
         }
 
         console.log('Device ID:', deviceId);
+
+        // Menu functionality
+        function openMenu() {
+            menuOverlay.style.display = 'block';
+            menuPanel.classList.add('open');
+        }
+
+        function closeMenu() {
+            menuOverlay.style.display = 'none';
+            menuPanel.classList.remove('open');
+        }
+
+        menuButton.addEventListener('click', openMenu);
+        menuOverlay.addEventListener('click', closeMenu);
+
+        // Menu item handlers (to be implemented)
+        menuProfile.addEventListener('click', () => {
+            console.log('Profile clicked');
+            closeMenu();
+            // TODO: Implement profile screen
+        });
+
+        menuShare.addEventListener('click', () => {
+            console.log('Share clicked');
+            closeMenu();
+            // TODO: Implement share functionality
+        });
+
+        menuLogin.addEventListener('click', () => {
+            console.log('Login clicked');
+            closeMenu();
+            // TODO: Implement login/logout functionality
+        });
+
+        menuHowToPlay.addEventListener('click', () => {
+            console.log('How to Play clicked');
+            closeMenu();
+            // TODO: Implement how to play screen
+        });
+
+        menuFeedback.addEventListener('click', () => {
+            console.log('Feedback clicked');
+            closeMenu();
+            // TODO: Implement feedback form
+        });
 
         // Get today's date key (user's local timezone)
         function getTodayDateKey() {
@@ -616,7 +796,54 @@
             }
         }
 
-        // Load user's best score and update displays
+        // Load user's total coins from Firestore
+        async function loadUserCoins() {
+            if (!currentUser) return;
+            
+            try {
+                const userCoinsRef = doc(db, 'userCoins', currentUser.uid);
+                const userCoinsDoc = await getDoc(userCoinsRef);
+                
+                if (userCoinsDoc.exists()) {
+                    totalCoins = userCoinsDoc.data().totalCoins || 0;
+                    console.log('Loaded user coins:', totalCoins);
+                } else {
+                    totalCoins = 0;
+                }
+            } catch (error) {
+                console.error('Error loading user coins:', error);
+                totalCoins = 0;
+            }
+        }
+
+        // Save coins to Firestore
+        async function saveUserCoins(coinsEarned) {
+            if (!currentUser || coinsEarned <= 0) return;
+            
+            try {
+                const userCoinsRef = doc(db, 'userCoins', currentUser.uid);
+                const userCoinsDoc = await getDoc(userCoinsRef);
+                
+                let currentTotal = 0;
+                if (userCoinsDoc.exists()) {
+                    currentTotal = userCoinsDoc.data().totalCoins || 0;
+                }
+                
+                const newTotal = currentTotal + coinsEarned;
+                
+                await setDoc(userCoinsRef, {
+                    uid: currentUser.uid,
+                    email: currentUser.email,
+                    totalCoins: newTotal,
+                    lastUpdated: Timestamp.now()
+                });
+                
+                totalCoins = newTotal;
+                console.log('Saved coins. New total:', totalCoins);
+            } catch (error) {
+                console.error('Error saving coins:', error);
+            }
+        }
         async function loadUserBestScore() {
             if (!currentUser) return;
             
@@ -1226,6 +1453,11 @@
             gameOver = true;
             saveHighScore();
             
+            // Save coins earned this game
+            if (currency > 0) {
+                await saveUserCoins(currency);
+            }
+            
             finalScoreDisplay.textContent = score;
             finalHighScoreDisplay.textContent = highScore;
             finalCoinsDisplay.textContent = currency;
@@ -1341,6 +1573,7 @@
             if (user) {
                 currentUser = user;
                 console.log('User authenticated:', user.email);
+                await loadUserCoins();
                 await loadHighScore();
                 await loadUserBestScore();
             } else {
