@@ -689,6 +689,11 @@
                     noAttemptsRank.textContent = `#${currentRank}`;
                 }
                 startCountdown();
+                // Make absolutely sure game doesn't start
+                if (gameLoopInterval) {
+                    clearInterval(gameLoopInterval);
+                    gameLoopInterval = null;
+                }
                 return;
             }
             
@@ -698,7 +703,11 @@
                 attemptsDisplay.textContent = `${attemptsUsedToday}/${MAX_ATTEMPTS_PER_DAY}`;
             } catch (error) {
                 console.error('Failed to increment attempts:', error);
-                // If we hit max attempts, show the no attempts screen
+                // If we hit max attempts, show the no attempts screen and stop any game loop
+                if (gameLoopInterval) {
+                    clearInterval(gameLoopInterval);
+                    gameLoopInterval = null;
+                }
                 noAttemptsScreen.style.display = 'flex';
                 noAttemptsHighScore.textContent = highScore;
                 if (currentRank) {
@@ -779,6 +788,11 @@
                         noAttemptsRank.textContent = `#${currentRank}`;
                     }
                     startCountdown();
+                    // Make absolutely sure game doesn't start
+                    if (gameLoopInterval) {
+                        clearInterval(gameLoopInterval);
+                        gameLoopInterval = null;
+                    }
                     return;
                 }
                 
@@ -792,7 +806,11 @@
                     gameLoop();
                 } catch (error) {
                     console.error('Failed to increment attempts:', error);
-                    // If increment failed, show no attempts screen
+                    // If increment failed, show no attempts screen and stop any game loop
+                    if (gameLoopInterval) {
+                        clearInterval(gameLoopInterval);
+                        gameLoopInterval = null;
+                    }
                     noAttemptsScreen.style.display = 'flex';
                     noAttemptsHighScore.textContent = highScore;
                     if (currentRank) {
@@ -845,6 +863,11 @@
                     noAttemptsRank.textContent = `#${currentRank}`;
                 }
                 startCountdown();
+                // Make absolutely sure game doesn't start
+                if (gameLoopInterval) {
+                    clearInterval(gameLoopInterval);
+                    gameLoopInterval = null;
+                }
                 return;
             }
             
@@ -854,7 +877,11 @@
                 attemptsDisplay.textContent = `${attemptsUsedToday}/${MAX_ATTEMPTS_PER_DAY}`;
             } catch (error) {
                 console.error('Failed to increment attempts:', error);
-                // If we hit max attempts, show the no attempts screen
+                // If we hit max attempts, show the no attempts screen and stop any game loop
+                if (gameLoopInterval) {
+                    clearInterval(gameLoopInterval);
+                    gameLoopInterval = null;
+                }
                 noAttemptsScreen.style.display = 'flex';
                 noAttemptsHighScore.textContent = highScore;
                 if (currentRank) {
@@ -1187,6 +1214,12 @@
         function gameLoop() {
             if (gameLoopInterval) {
                 clearInterval(gameLoopInterval);
+            }
+            
+            // Safety check - don't start if no user or out of attempts
+            if (!currentUser || attemptsUsedToday >= MAX_ATTEMPTS_PER_DAY) {
+                console.error('Cannot start game - no user or out of attempts');
+                return;
             }
             
             gameLoopInterval = setInterval(() => {
