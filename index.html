@@ -32,7 +32,7 @@
 
         .score-display {
             display: flex;
-            gap: 50px;
+            gap: 30px;
             color: white;
             font-size: 20px;
             font-weight: bold;
@@ -215,7 +215,7 @@
         @media (max-width: 767px) {
             .score-display {
                 font-size: 16px;
-                gap: 30px;
+                gap: 20px;
             }
 
             .controls {
@@ -244,6 +244,7 @@
     <div class="game-container">
         <div class="score-display">
             <div class="score-item">Score: <span id="score">0</span></div>
+            <div class="score-item">Rank: <span id="currentRank">#-</span></div>
             <div class="score-item">Coins: <span id="coins">0</span></div>
         </div>
         
@@ -343,6 +344,7 @@
         let keysPressed = { left: false, right: false };
         let gameLoopInterval = null;
         let playerName = localStorage.getItem('playerName') || '';
+        let currentRank = null;
 
         // Get DOM elements
         const canvas = document.getElementById('gameCanvas');
@@ -356,6 +358,7 @@
         const restartButton = document.getElementById('restartButton');
         const copyButton = document.getElementById('copyButton');
         const scoreDisplay = document.getElementById('score');
+        const currentRankDisplay = document.getElementById('currentRank');
         const coinsDisplay = document.getElementById('coins');
         const finalScoreDisplay = document.getElementById('finalScore');
         const finalCoinsDisplay = document.getElementById('finalCoins');
@@ -363,11 +366,59 @@
         const leftButton = document.getElementById('leftButton');
         const rightButton = document.getElementById('rightButton');
 
-        // Load high score from localStorage
-        function loadHighScore() {
+        // Load high score from localStorage and fetch current rank
+        async function loadHighScore() {
             const saved = localStorage.getItem('highScore');
             if (saved) {
                 highScore = parseInt(saved);
+            }
+            
+            // Load current rank if player has a name
+            if (playerName) {
+                await updateCurrentRank();
+            }
+        }
+
+        // Update current rank display
+        async function updateCurrentRank() {
+            try {
+                // Get player's best score
+                const playerScoresQuery = query(
+                    collection(db, 'scores'),
+                    where('name', '==', playerName)
+                );
+                const playerScoresSnapshot = await getDocs(playerScoresQuery);
+                
+                let playerBestScore = 0;
+                playerScoresSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.score > playerBestScore) {
+                        playerBestScore = data.score;
+                    }
+                });
+                
+                if (playerBestScore === 0) {
+                    currentRankDisplay.textContent = '#-';
+                    return;
+                }
+                
+                // Get all scores for ranking
+                const allScoresQuery = query(collection(db, 'scores'));
+                const allScoresSnapshot = await getDocs(allScoresQuery);
+                
+                const allScores = [];
+                allScoresSnapshot.forEach(doc => {
+                    allScores.push(doc.data().score);
+                });
+                
+                allScores.sort((a, b) => b - a);
+                const rank = allScores.filter(s => s > playerBestScore).length + 1;
+                
+                currentRank = rank;
+                currentRankDisplay.textContent = `#${rank}`;
+            } catch (error) {
+                console.error('Error fetching rank:', error);
+                currentRankDisplay.textContent = '#-';
             }
         }
 
@@ -393,12 +444,13 @@
         }
 
         // Submit name
-        submitNameButton.addEventListener('click', () => {
+        submitNameButton.addEventListener('click', async () => {
             const name = playerNameInput.value.trim();
             if (name) {
                 playerName = name;
                 localStorage.setItem('playerName', playerName);
                 nameScreen.style.display = 'none';
+                await updateCurrentRank();
                 gameLoop();
             } else {
                 alert('Please enter a name!');
@@ -428,6 +480,7 @@
             scoreDisplay.textContent = '0';
             coinsDisplay.textContent = '0';
             
+            await updateCurrentRank();
             gameLoop();
         }
 
@@ -708,6 +761,9 @@
             // Save score and get stats from Firestore
             const stats = await saveScoreAndGetStats();
             finalRankDisplay.textContent = `#${stats.rank}`;
+            
+            // Update the live rank display for next game
+            await updateCurrentRank();
         }
 
         // Render game
