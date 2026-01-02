@@ -326,6 +326,7 @@
         // Import Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, doc, setDoc, getDoc, runTransaction, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
         // Firebase configuration
         const firebaseConfig = {
@@ -340,6 +341,7 @@
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const auth = getAuth(app);
 
         // Game constants
         const PLAYER_SIZE = 30;
@@ -367,11 +369,14 @@
         let gameLoopInterval = null;
         let playerName = localStorage.getItem('playerName') || '';
         let playerEmail = localStorage.getItem('playerEmail') || '';
+        let currentUser = null;
+        let deviceId = localStorage.getItem('deviceId') || generateDeviceId();
         let currentRank = null;
         let attemptsRemaining = localStorage.getItem('attemptsRemaining') !== null ? parseInt(localStorage.getItem('attemptsRemaining')) : 1;
         let attemptsUsedToday = 0;
         let resetTime = localStorage.getItem('resetTime') || null;
         let countdownInterval = null;
+        let isAuthenticating = false;
 
         // Get DOM elements
         const canvas = document.getElementById('gameCanvas');
@@ -402,6 +407,15 @@
         const leftButton = document.getElementById('leftButton');
         const rightButton = document.getElementById('rightButton');
 
+        // Generate a unique device ID
+        function generateDeviceId() {
+            const id = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('deviceId', id);
+            return id;
+        }
+
+        console.log('Device ID:', deviceId);
+
         // Get today's date key (UTC)
         function getTodayDateKey() {
             const now = new Date();
@@ -411,51 +425,88 @@
             return `${year}-${month}-${day}`;
         }
 
-        // Get attempts from Firestore for today
+        // Get attempts from Firestore for today (check both UID and deviceId)
         async function getAttemptsToday() {
-            if (!playerEmail) return 0;
+            if (!currentUser) return 0;
             
             try {
                 const dateKey = getTodayDateKey();
-                const attemptsRef = doc(db, 'attempts', `${playerEmail}_${dateKey}`);
-                const attemptsDoc = await getDoc(attemptsRef);
                 
-                if (attemptsDoc.exists()) {
-                    return attemptsDoc.data().count || 0;
+                // Check attempts by UID
+                const uidAttemptsRef = doc(db, 'attempts', `${currentUser.uid}_${dateKey}`);
+                const uidAttemptsDoc = await getDoc(uidAttemptsRef);
+                
+                // Check attempts by deviceId
+                const deviceAttemptsRef = doc(db, 'attempts', `${deviceId}_${dateKey}`);
+                const deviceAttemptsDoc = await getDoc(deviceAttemptsRef);
+                
+                let uidCount = 0;
+                let deviceCount = 0;
+                
+                if (uidAttemptsDoc.exists()) {
+                    uidCount = uidAttemptsDoc.data().count || 0;
                 }
-                return 0;
+                
+                if (deviceAttemptsDoc.exists()) {
+                    deviceCount = deviceAttemptsDoc.data().count || 0;
+                }
+                
+                // Return the maximum of the two (if either is maxed out, block play)
+                return Math.max(uidCount, deviceCount);
             } catch (error) {
                 console.error('Error getting attempts:', error);
                 return 0;
             }
         }
 
-        // Increment attempts in Firestore (transaction)
+        // Increment attempts in Firestore (transaction) - track both UID and deviceId
         async function incrementAttempts() {
-            if (!playerEmail) {
-                throw new Error('No email set');
+            if (!currentUser) {
+                throw new Error('Not authenticated');
             }
             
             const dateKey = getTodayDateKey();
-            const attemptsRef = doc(db, 'attempts', `${playerEmail}_${dateKey}`);
+            const uidAttemptsRef = doc(db, 'attempts', `${currentUser.uid}_${dateKey}`);
+            const deviceAttemptsRef = doc(db, 'attempts', `${deviceId}_${dateKey}`);
             
             try {
                 await runTransaction(db, async (transaction) => {
-                    const attemptsDoc = await transaction.get(attemptsRef);
+                    // Check both UID and device attempts
+                    const uidAttemptsDoc = await transaction.get(uidAttemptsRef);
+                    const deviceAttemptsDoc = await transaction.get(deviceAttemptsRef);
                     
-                    let currentCount = 0;
-                    if (attemptsDoc.exists()) {
-                        currentCount = attemptsDoc.data().count || 0;
+                    let uidCount = 0;
+                    let deviceCount = 0;
+                    
+                    if (uidAttemptsDoc.exists()) {
+                        uidCount = uidAttemptsDoc.data().count || 0;
                     }
                     
-                    if (currentCount >= MAX_ATTEMPTS_PER_DAY) {
+                    if (deviceAttemptsDoc.exists()) {
+                        deviceCount = deviceAttemptsDoc.data().count || 0;
+                    }
+                    
+                    // If either has reached max, block
+                    if (uidCount >= MAX_ATTEMPTS_PER_DAY || deviceCount >= MAX_ATTEMPTS_PER_DAY) {
                         throw new Error('Maximum attempts reached');
                     }
                     
-                    const newCount = currentCount + 1;
+                    const newCount = Math.max(uidCount, deviceCount) + 1;
                     
-                    transaction.set(attemptsRef, {
-                        email: playerEmail,
+                    // Update both UID and device attempts
+                    transaction.set(uidAttemptsRef, {
+                        uid: currentUser.uid,
+                        email: currentUser.email,
+                        dateKey: dateKey,
+                        count: newCount,
+                        deviceId: deviceId,
+                        lastUpdated: Timestamp.now()
+                    });
+                    
+                    transaction.set(deviceAttemptsRef, {
+                        deviceId: deviceId,
+                        uid: currentUser.uid,
+                        email: currentUser.email,
                         dateKey: dateKey,
                         count: newCount,
                         lastUpdated: Timestamp.now()
@@ -534,7 +585,7 @@
         }
         // Load attempts data from Firestore
         async function loadAttemptsData() {
-            if (!playerEmail) {
+            if (!currentUser) {
                 attemptsDisplay.textContent = '0/1';
                 return;
             }
@@ -555,23 +606,23 @@
             await loadAttemptsData();
             
             // Load current rank if player has a name
-            if (playerName && playerEmail) {
+            if (playerName && currentUser) {
                 await updateCurrentRank();
             }
         }
 
         // Update current rank display
         async function updateCurrentRank() {
-            if (!playerEmail) {
+            if (!currentUser) {
                 currentRankDisplay.textContent = '#-';
                 return;
             }
             
             try {
-                // Get player's best score
+                // Get player's best score by UID
                 const playerScoresQuery = query(
                     collection(db, 'scores'),
-                    where('email', '==', playerEmail)
+                    where('uid', '==', currentUser.uid)
                 );
                 const playerScoresSnapshot = await getDocs(playerScoresQuery);
                 
@@ -618,8 +669,8 @@
 
         // Start game
         async function startGame() {
-            // Check if email is set
-            if (!playerEmail) {
+            // Check if authenticated
+            if (!currentUser) {
                 nameScreen.style.display = 'flex';
                 return;
             }
@@ -661,8 +712,10 @@
             gameLoop();
         }
 
-        // Submit name and email
+        // Submit name and email (authenticate with Firebase)
         submitNameButton.addEventListener('click', async () => {
+            if (isAuthenticating) return;
+            
             const email = playerEmailInput.value.trim();
             const name = playerNameInput.value.trim();
             
@@ -680,44 +733,80 @@
                 return;
             }
             
-            playerEmail = email;
-            playerName = name;
-            localStorage.setItem('playerEmail', playerEmail);
-            localStorage.setItem('playerName', playerName);
+            isAuthenticating = true;
+            submitNameButton.textContent = 'Authenticating...';
+            submitNameButton.disabled = true;
             
-            nameScreen.style.display = 'none';
-            
-            await loadAttemptsData();
-            await updateCurrentRank();
-            
-            // Check if they have attempts left BEFORE trying to start
-            if (attemptsUsedToday >= MAX_ATTEMPTS_PER_DAY) {
-                noAttemptsScreen.style.display = 'flex';
-                noAttemptsHighScore.textContent = highScore;
-                if (currentRank) {
-                    noAttemptsRank.textContent = `#${currentRank}`;
-                }
-                startCountdown();
-                return;
-            }
-            
-            // Try to increment attempts BEFORE starting game
             try {
-                await incrementAttempts();
-                attemptsDisplay.textContent = `${attemptsUsedToday}/${MAX_ATTEMPTS_PER_DAY}`;
-                
-                // Only start game if increment succeeded
-                await updateCurrentRank();
-                gameLoop();
-            } catch (error) {
-                console.error('Failed to increment attempts:', error);
-                // If increment failed, show no attempts screen
-                noAttemptsScreen.style.display = 'flex';
-                noAttemptsHighScore.textContent = highScore;
-                if (currentRank) {
-                    noAttemptsRank.textContent = `#${currentRank}`;
+                // Try to sign in first, if fails, create account
+                let userCredential;
+                try {
+                    // Use a simple password based on email for demo
+                    // In production, you'd want proper password management
+                    const password = 'skyfall_' + email;
+                    userCredential = await signInWithEmailAndPassword(auth, email, password);
+                    console.log('Signed in existing user');
+                } catch (signInError) {
+                    if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/wrong-password' || signInError.code === 'auth/invalid-credential') {
+                        // Create new account
+                        const password = 'skyfall_' + email;
+                        userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                        console.log('Created new user');
+                    } else {
+                        throw signInError;
+                    }
                 }
-                startCountdown();
+                
+                currentUser = userCredential.user;
+                playerEmail = email;
+                playerName = name;
+                localStorage.setItem('playerEmail', playerEmail);
+                localStorage.setItem('playerName', playerName);
+                
+                nameScreen.style.display = 'none';
+                submitNameButton.textContent = 'Submit';
+                submitNameButton.disabled = false;
+                isAuthenticating = false;
+                
+                await loadAttemptsData();
+                await updateCurrentRank();
+                
+                // Check if they have attempts left BEFORE trying to start
+                if (attemptsUsedToday >= MAX_ATTEMPTS_PER_DAY) {
+                    noAttemptsScreen.style.display = 'flex';
+                    noAttemptsHighScore.textContent = highScore;
+                    if (currentRank) {
+                        noAttemptsRank.textContent = `#${currentRank}`;
+                    }
+                    startCountdown();
+                    return;
+                }
+                
+                // Try to increment attempts BEFORE starting game
+                try {
+                    await incrementAttempts();
+                    attemptsDisplay.textContent = `${attemptsUsedToday}/${MAX_ATTEMPTS_PER_DAY}`;
+                    
+                    // Only start game if increment succeeded
+                    await updateCurrentRank();
+                    gameLoop();
+                } catch (error) {
+                    console.error('Failed to increment attempts:', error);
+                    // If increment failed, show no attempts screen
+                    noAttemptsScreen.style.display = 'flex';
+                    noAttemptsHighScore.textContent = highScore;
+                    if (currentRank) {
+                        noAttemptsRank.textContent = `#${currentRank}`;
+                    }
+                    startCountdown();
+                }
+            } catch (error) {
+                console.error('Authentication error:', error);
+                emailError.textContent = 'Authentication failed: ' + error.message;
+                emailError.style.display = 'block';
+                submitNameButton.textContent = 'Submit';
+                submitNameButton.disabled = false;
+                isAuthenticating = false;
             }
         });
 
@@ -736,8 +825,8 @@
 
         // Restart game
         async function restartGame() {
-            // Check if email is set
-            if (!playerEmail) {
+            // Check if authenticated
+            if (!currentUser) {
                 gameOverScreen.style.display = 'none';
                 nameScreen.style.display = 'flex';
                 return;
@@ -795,12 +884,12 @@
         // Save score to Firestore and get global stats
         async function saveScoreAndGetStats() {
             try {
-                console.log('Saving score to Firestore...', { email: playerEmail, name: playerName, score });
+                console.log('Saving score to Firestore...', { uid: currentUser.uid, email: playerEmail, name: playerName, score });
                 
-                // Get player's existing scores
+                // Get player's existing scores by UID
                 const playerScoresQuery = query(
                     collection(db, 'scores'),
-                    where('email', '==', playerEmail)
+                    where('uid', '==', currentUser.uid)
                 );
                 const playerScoresSnapshot = await getDocs(playerScoresQuery);
                 
@@ -827,18 +916,22 @@
                         // Update existing document
                         const docRef = doc(db, 'scores', existingDocId);
                         await setDoc(docRef, {
+                            uid: currentUser.uid,
                             email: playerEmail,
                             name: playerName,
                             score: score,
+                            deviceId: deviceId,
                             createdAt: Timestamp.now()
                         });
                         console.log('Score updated for existing player');
                     } else {
                         // Create new document for new player
                         const docRef = await addDoc(collection(db, 'scores'), {
+                            uid: currentUser.uid,
                             email: playerEmail,
                             name: playerName,
                             score: score,
+                            deviceId: deviceId,
                             createdAt: Timestamp.now()
                         });
                         console.log('New score saved with ID:', docRef.id);
@@ -1164,6 +1257,17 @@
         }, { passive: false });
 
         // Initialize
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                console.log('User authenticated:', user.email);
+                await loadHighScore();
+            } else {
+                console.log('No user authenticated');
+                currentUser = null;
+            }
+        });
+        
         loadHighScore();
         render();
     </script>
