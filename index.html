@@ -278,9 +278,6 @@
                     <h1>Game Over!</h1>
                     <p class="stat">Your Score: <span id="finalScore">0</span></p>
                     <p class="stat">Your Rank: <span id="finalRank">Calculating...</span></p>
-                    <p class="stat">Top Today: <span id="topToday">Loading...</span></p>
-                    <p class="stat">All-Time Top: <span id="topAllTime">Loading...</span></p>
-                    <p class="stat">You are in the top <span id="percentile">...</span>% of players</p>
                     <p class="stat">Coins Collected: <span id="finalCoins">0</span></p>
                     <div>
                         <button id="copyButton" class="btn btn-copy">📋 Copy Result</button>
@@ -306,7 +303,7 @@
     <script type="module">
         // Import Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, where, orderBy, limit, getDocs, doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
         // Firebase configuration
         const firebaseConfig = {
@@ -363,9 +360,6 @@
         const finalScoreDisplay = document.getElementById('finalScore');
         const finalCoinsDisplay = document.getElementById('finalCoins');
         const finalRankDisplay = document.getElementById('finalRank');
-        const topTodayDisplay = document.getElementById('topToday');
-        const topAllTimeDisplay = document.getElementById('topAllTime');
-        const percentileDisplay = document.getElementById('percentile');
         const leftButton = document.getElementById('leftButton');
         const rightButton = document.getElementById('rightButton');
 
@@ -442,15 +436,55 @@
             try {
                 console.log('Saving score to Firestore...', { name: playerName, score });
                 
-                // Save score to Firestore
-                const docRef = await addDoc(collection(db, 'scores'), {
-                    name: playerName,
-                    score: score,
-                    createdAt: Timestamp.now()
+                // Get player's existing scores
+                const playerScoresQuery = query(
+                    collection(db, 'scores'),
+                    where('name', '==', playerName)
+                );
+                const playerScoresSnapshot = await getDocs(playerScoresQuery);
+                
+                let playerBestScore = score;
+                let updateExisting = false;
+                let existingDocId = null;
+                
+                // Check if player has a previous best score
+                playerScoresSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.score > playerBestScore) {
+                        playerBestScore = data.score;
+                    }
+                    // Store the first doc to update later
+                    if (!existingDocId) {
+                        existingDocId = doc.id;
+                    }
                 });
-                console.log('Score saved with ID:', docRef.id);
+                
+                // Only save if this is a new personal best
+                if (score >= playerBestScore) {
+                    console.log('New personal best! Saving...');
+                    if (existingDocId) {
+                        // Update existing document
+                        const docRef = doc(db, 'scores', existingDocId);
+                        await setDoc(docRef, {
+                            name: playerName,
+                            score: score,
+                            createdAt: Timestamp.now()
+                        });
+                        console.log('Score updated for existing player');
+                    } else {
+                        // Create new document for new player
+                        const docRef = await addDoc(collection(db, 'scores'), {
+                            name: playerName,
+                            score: score,
+                            createdAt: Timestamp.now()
+                        });
+                        console.log('New score saved with ID:', docRef.id);
+                    }
+                } else {
+                    console.log('Not a personal best. Using existing best score:', playerBestScore);
+                }
 
-                // Get all scores for ranking (simple query without orderBy first)
+                // Get all scores for ranking (use player's best score for ranking)
                 console.log('Fetching all scores...');
                 const allScoresQuery = query(collection(db, 'scores'));
                 const allScoresSnapshot = await getDocs(allScoresQuery);
@@ -467,52 +501,24 @@
                 allScores.sort((a, b) => b - a);
                 console.log('All scores sorted:', allScores);
                 
-                // Calculate rank (number of scores strictly greater + 1)
-                const rank = allScores.filter(s => s > score).length + 1;
-                const totalPlayers = allScores.length;
-                const percentile = totalPlayers > 1 ? ((rank / totalPlayers) * 100).toFixed(1) : 100;
+                // Calculate rank based on player's BEST score (not current attempt)
+                const rank = allScores.filter(s => s > playerBestScore).length + 1;
+                const totalPlayers = allScoresSnapshot.size;
                 
-                console.log('Rank calculation:', { rank, totalPlayers, percentile });
+                console.log('Rank calculation:', { rank, totalPlayers, playerBestScore });
 
-                // Get today's top score
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const todayTimestamp = Timestamp.fromDate(today);
-                console.log('Today timestamp:', todayTimestamp.toDate());
-                
-                // Filter scores from today manually
-                const todayScores = [];
-                allScoresSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.createdAt && data.createdAt.toDate() >= today) {
-                        todayScores.push(data.score);
-                    }
-                });
-                console.log('Today scores:', todayScores);
-                
-                const topToday = todayScores.length > 0 ? Math.max(...todayScores) : score;
-
-                // Get all-time top score
-                const topAllTime = allScores.length > 0 ? Math.max(...allScores) : score;
-                
-                console.log('Final stats:', { rank, totalPlayers, percentile, topToday, topAllTime });
+                console.log('Final stats:', { rank, totalPlayers });
 
                 return {
                     rank,
-                    totalPlayers,
-                    percentile,
-                    topToday,
-                    topAllTime
+                    totalPlayers
                 };
             } catch (error) {
                 console.error('Error saving score:', error);
                 console.error('Error details:', error.message, error.code);
                 return {
                     rank: 1,
-                    totalPlayers: 1,
-                    percentile: 100,
-                    topToday: score,
-                    topAllTime: score
+                    totalPlayers: 1
                 };
             }
         }
@@ -520,8 +526,7 @@
         // Copy result to clipboard
         async function copyResult() {
             const rank = finalRankDisplay.textContent;
-            const percentile = percentileDisplay.textContent;
-            const shareText = `Sky Fall – Score: ${score}, Rank: ${rank}, Top ${percentile}% – Play: https://kamwed.github.io/Falling-Game/`;
+            const shareText = `Sky Fall – Score: ${score}, Rank: ${rank} – Play: https://kamwed.github.io/Falling-Game/`;
             
             try {
                 await navigator.clipboard.writeText(shareText);
@@ -703,9 +708,6 @@
             // Save score and get stats from Firestore
             const stats = await saveScoreAndGetStats();
             finalRankDisplay.textContent = `#${stats.rank}`;
-            topTodayDisplay.textContent = stats.topToday;
-            topAllTimeDisplay.textContent = stats.topAllTime;
-            percentileDisplay.textContent = stats.percentile;
         }
 
         // Render game
