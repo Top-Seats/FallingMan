@@ -265,7 +265,6 @@
             display: flex;
             justify-content: space-between;
             padding: 20px;
-            background: rgba(0, 0, 0, 0.3);
             z-index: 1000;
         }
 
@@ -359,7 +358,7 @@
             <!-- Name Input Screen -->
             <div id="nameScreen" class="overlay-screen" style="display: none;">
                 <div class="screen-content">
-                    <h1>Enter Your Details</h1>
+                    <h1>Sign Up</h1>
                     <p>Enter your email and name to play:</p>
                     <input type="email" id="playerEmailInput" placeholder="Enter your email" maxlength="100">
                     <br>
@@ -942,14 +941,14 @@
 
         // Start game
         async function startGame() {
-            // Check if authenticated
+            showIntro = false;
+            introScreen.style.display = 'none';
+            
+            // Check if authenticated - if not, show signup
             if (!currentUser) {
                 nameScreen.style.display = 'flex';
                 return;
             }
-            
-            showIntro = false;
-            introScreen.style.display = 'none';
             
             // Check attempts first
             await loadAttemptsData();
@@ -1050,6 +1049,7 @@
                 submitNameButton.disabled = false;
                 isAuthenticating = false;
                 
+                await loadUserCoins();
                 await loadAttemptsData();
                 await updateCurrentRank();
                 await loadUserBestScore();
