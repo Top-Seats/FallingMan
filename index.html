@@ -1985,6 +1985,10 @@
             if (user) {
                 currentUser = user;
                 console.log('User authenticated:', user.email);
+                
+                // Ensure user has a share code
+                await ensureUserShareCode(user.uid);
+                
                 await loadProgress();
                 await loadUserCoins();
                 await loadHighScore();
