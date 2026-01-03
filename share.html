@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Share the Game - Sky Fall</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(to bottom, #60a5fa, #2563eb);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .tagline {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #22c55e;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+            transition: all 0.2s;
+            margin-bottom: 30px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .back-button:hover {
+            background: #16a34a;
+            transform: scale(1.05);
+        }
+
+        .content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            color: #1f2937;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #2563eb;
+        }
+
+        p {
+            font-size: 18px;
+            line-height: 1.6;
+            margin-bottom: 25px;
+        }
+
+        .share-section {
+            margin: 30px 0;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 15px;
+        }
+
+        .link-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .link-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            background: #f9fafb;
+            color: #1f2937;
+        }
+
+        .copy-button, .share-button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .copy-button {
+            background: #2563eb;
+            color: white;
+        }
+
+        .copy-button:hover {
+            background: #1e40af;
+        }
+
+        .copy-button.copied {
+            background: #22c55e;
+        }
+
+        .share-button {
+            background: #8b5cf6;
+            color: white;
+            width: 100%;
+        }
+
+        .share-button:hover:not(:disabled) {
+            background: #7c3aed;
+        }
+
+        .share-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .message.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+            display: block;
+        }
+
+        .message.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+            display: block;
+        }
+
+        .score-badge {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+            margin: 10px 0;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 36px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .content {
+                padding: 25px;
+            }
+
+            p {
+                font-size: 16px;
+            }
+
+            .link-container {
+                flex-direction: column;
+            }
+
+            .link-input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎮 Sky Fall</div>
+            <div class="tagline">Share the challenge!</div>
+        </div>
+
+        <a href="index.html" class="back-button">⬅ Back to Game</a>
+
+        <div class="content">
+            <h1>Share the Game</h1>
+            
+            <p>Invite friends to compete on the global leaderboard. Share this link and challenge them to beat your score!</p>
+
+            <div id="scoreDisplay"></div>
+
+            <!-- Copy Link Section -->
+            <div class="share-section">
+                <div class="section-title">📋 Copy Game Link</div>
+                <div class="link-container">
+                    <input type="text" class="link-input" id="gameLink" value="https://skyfall.game" readonly>
+                    <button class="copy-button" id="copyButton">Copy Link</button>
+                </div>
+                <div id="copyMessage" class="message"></div>
+            </div>
+
+            <!-- Web Share Section -->
+            <div class="share-section">
+                <div class="section-title">📤 Share with Friends</div>
+                <button class="share-button" id="shareButton">Share Game</button>
+                <div id="shareMessage" class="message"></div>
+            </div>
+
+            <div style="margin-top: 40px; text-align: center;">
+                <a href="index.html" class="back-button">Back to Game 🎮</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBic7ZeUQDgPZqORn0t6-wUCGHfEPASE10",
+            authDomain: "topseat-d1d5d.firebaseapp.com",
+            projectId: "topseat-d1d5d",
+            storageBucket: "topseat-d1d5d.firebasestorage.app",
+            messagingSenderId: "770306321288",
+            appId: "1:770306321288:web:0e768acffc4d189672283d"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Game configuration
+        const GAME_URL = 'https://skyfall.game'; // Change this to your actual game URL
+        const GAME_NAME = 'Sky Fall';
+        
+        let playerScore = null;
+        let currentUser = null;
+
+        // Load player's best score
+        async function loadPlayerScore() {
+            if (!currentUser) {
+                return null;
+            }
+
+            try {
+                const scoresQuery = query(
+                    collection(db, 'scores'),
+                    where('uid', '==', currentUser.uid)
+                );
+                const scoresSnapshot = await getDocs(scoresQuery);
+                
+                let bestScore = 0;
+                scoresSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.score > bestScore) {
+                        bestScore = data.score;
+                    }
+                });
+                
+                return bestScore > 0 ? bestScore : null;
+            } catch (error) {
+                console.error('Error loading score:', error);
+                return null;
+            }
+        }
+
+        // Display score badge
+        function displayScore(score) {
+            const scoreDisplay = document.getElementById('scoreDisplay');
+            if (score) {
+                scoreDisplay.innerHTML = `<div class="score-badge">Your Best Score: ${score.toLocaleString()}</div>`;
+            }
+        }
+
+        // Get share text based on score
+        function getShareText() {
+            if (playerScore) {
+                return `My best score is ${playerScore.toLocaleString()} in ${GAME_NAME}. Think you can beat it?`;
+            }
+            return `Try to beat my score in ${GAME_NAME}!`;
+        }
+
+        // Copy link button
+        document.getElementById('copyButton').addEventListener('click', async () => {
+            const linkInput = document.getElementById('gameLink');
+            const copyButton = document.getElementById('copyButton');
+            const copyMessage = document.getElementById('copyMessage');
+            
+            try {
+                await navigator.clipboard.writeText(linkInput.value);
+                
+                copyButton.textContent = '✓ Copied!';
+                copyButton.classList.add('copied');
+                copyMessage.className = 'message success';
+                copyMessage.textContent = 'Link copied to clipboard!';
+                
+                setTimeout(() => {
+                    copyButton.textContent = 'Copy Link';
+                    copyButton.classList.remove('copied');
+                    copyMessage.className = 'message';
+                    copyMessage.textContent = '';
+                }, 3000);
+            } catch (error) {
+                console.error('Copy failed:', error);
+                copyMessage.className = 'message info';
+                copyMessage.textContent = 'Please manually copy the link above.';
+            }
+        });
+
+        // Web Share API button
+        const shareButton = document.getElementById('shareButton');
+        const shareMessage = document.getElementById('shareMessage');
+
+        if (navigator.share) {
+            shareButton.addEventListener('click', async () => {
+                try {
+                    await navigator.share({
+                        title: GAME_NAME,
+                        text: getShareText(),
+                        url: GAME_URL
+                    });
+                    
+                    shareMessage.className = 'message success';
+                    shareMessage.textContent = 'Thanks for sharing!';
+                    
+                    setTimeout(() => {
+                        shareMessage.className = 'message';
+                        shareMessage.textContent = '';
+                    }, 3000);
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.error('Share failed:', error);
+                    }
+                }
+            });
+        } else {
+            shareButton.disabled = true;
+            shareButton.textContent = 'Share Not Supported';
+            shareMessage.className = 'message info';
+            shareMessage.textContent = 'Sharing is not supported on this device. Use the copy link button above instead.';
+        }
+
+        // Initialize
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                playerScore = await loadPlayerScore();
+                displayScore(playerScore);
+            }
+        });
+    </script>
+</body>
+</html>
