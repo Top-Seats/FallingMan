@@ -1287,6 +1287,10 @@
                 return;
             }
             
+            // Load user coins and display
+            await loadUserCoins();
+            coinsDisplay.textContent = totalCoins; // Show saved coins at start
+            
             // Update level display to show current saved level
             levelDisplay.textContent = currentLevel;
             
@@ -1494,7 +1498,7 @@
             obstacles = [];
             coins = [];
             score = 0;
-            currency = 0;
+            currency = 0; // Reset current round coins to 0
             currentLevel = 1;
             fallSpeed = 2;
             levelComplete = false;
@@ -1508,7 +1512,9 @@
             
             levelDisplay.textContent = '1';
             scoreDisplay.textContent = '0';
-            coinsDisplay.textContent = '0';
+            
+            // Display total coins (saved from previous games)
+            coinsDisplay.textContent = totalCoins;
             
             await updateCurrentRank();
             gameLoop();
@@ -1783,7 +1789,8 @@
                     player.y + PLAYER_SIZE > coin.y
                 ) {
                     currency += 1;
-                    coinsDisplay.textContent = currency;
+                    // Display total coins (saved + current round)
+                    coinsDisplay.textContent = totalCoins + currency;
                     coins = coins.filter(c => c.id !== coin.id);
                 }
             });
