@@ -752,14 +752,19 @@
         // Create or get user's share code
         async function ensureUserShareCode(uid) {
             try {
+                console.log('🔍 Ensuring share code for UID:', uid);
                 const userRef = doc(db, 'users', uid);
                 const userDoc = await getDoc(userRef);
                 
+                console.log('📄 User doc exists:', userDoc.exists());
+                
                 if (userDoc.exists() && userDoc.data().shareCode) {
+                    console.log('✅ Found existing share code:', userDoc.data().shareCode);
                     return userDoc.data().shareCode;
                 }
                 
                 // Generate a unique code
+                console.log('🎲 Generating new share code...');
                 let shareCode = generateShareCode();
                 let isUnique = false;
                 let attempts = 0;
@@ -779,6 +784,8 @@
                     }
                 }
                 
+                console.log('💾 Saving share code to Firestore:', shareCode);
+                
                 // Save the share code
                 await setDoc(userRef, {
                     uid: uid,
@@ -787,10 +794,11 @@
                     createdAt: Timestamp.now()
                 }, { merge: true });
                 
-                console.log('Generated share code:', shareCode);
+                console.log('✅ Share code saved successfully:', shareCode);
                 return shareCode;
             } catch (error) {
-                console.error('Error ensuring share code:', error);
+                console.error('❌ Error ensuring share code:', error);
+                console.error('Error details:', error.message, error.code);
                 return null;
             }
         }

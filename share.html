@@ -310,19 +310,33 @@
         // Load user's share code
         async function loadShareCode() {
             if (!currentUser) {
+                console.log('⚠️ No current user, cannot load share code');
                 return null;
             }
 
             try {
+                console.log('🔍 Loading share code for UID:', currentUser.uid);
                 const userRef = doc(db, 'users', currentUser.uid);
                 const userDoc = await getDoc(userRef);
                 
-                if (userDoc.exists() && userDoc.data().shareCode) {
-                    return userDoc.data().shareCode;
+                console.log('📄 User doc exists:', userDoc.exists());
+                
+                if (userDoc.exists()) {
+                    console.log('📋 User doc data:', userDoc.data());
+                    if (userDoc.data().shareCode) {
+                        console.log('✅ Found share code:', userDoc.data().shareCode);
+                        return userDoc.data().shareCode;
+                    } else {
+                        console.log('⚠️ User doc exists but no shareCode field');
+                    }
+                } else {
+                    console.log('⚠️ User doc does not exist in Firestore');
                 }
+                
                 return null;
             } catch (error) {
-                console.error('Error loading share code:', error);
+                console.error('❌ Error loading share code:', error);
+                console.error('Error details:', error.message, error.code);
                 return null;
             }
         }
