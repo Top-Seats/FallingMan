@@ -526,12 +526,19 @@
         let countdownInterval = null;
         let isAuthenticating = false;
 
-        // Load saved progress from localStorage
-        function loadProgress() {
-            const savedProgress = localStorage.getItem('gameProgress');
-            if (savedProgress) {
-                try {
-                    const progress = JSON.parse(savedProgress);
+        // Load saved progress from Firestore
+        async function loadProgress() {
+            if (!currentUser) {
+                console.log('No user authenticated, cannot load progress');
+                return;
+            }
+            
+            try {
+                const progressRef = doc(db, 'userProgress', currentUser.uid);
+                const progressDoc = await getDoc(progressRef);
+                
+                if (progressDoc.exists()) {
+                    const progress = progressDoc.data();
                     currentLevel = progress.currentLevel || 1;
                     
                     // Calculate fallSpeed based on saved level
@@ -541,31 +548,63 @@
                         fallSpeed *= 1.25;
                     }
                     
-                    console.log('Loaded progress:', { currentLevel, fallSpeed });
-                } catch (error) {
-                    console.error('Error loading progress:', error);
+                    console.log('Loaded progress from Firestore:', { currentLevel, fallSpeed });
+                } else {
+                    console.log('No saved progress found, starting at level 1');
+                    currentLevel = 1;
+                    fallSpeed = 2;
                 }
+            } catch (error) {
+                console.error('Error loading progress from Firestore:', error);
+                // Fallback to level 1 if there's an error
+                currentLevel = 1;
+                fallSpeed = 2;
             }
         }
 
-        // Save progress to localStorage
-        function saveProgress() {
-            const progress = {
-                currentLevel: currentLevel,
-                lastSaved: new Date().toISOString()
-            };
-            localStorage.setItem('gameProgress', JSON.stringify(progress));
-            console.log('Progress saved:', progress);
+        // Save progress to Firestore
+        async function saveProgress() {
+            if (!currentUser) {
+                console.log('No user authenticated, cannot save progress');
+                return;
+            }
+            
+            try {
+                const progressRef = doc(db, 'userProgress', currentUser.uid);
+                const progress = {
+                    uid: currentUser.uid,
+                    email: currentUser.email,
+                    currentLevel: currentLevel,
+                    lastSaved: Timestamp.now()
+                };
+                
+                await setDoc(progressRef, progress);
+                console.log('Progress saved to Firestore:', progress);
+            } catch (error) {
+                console.error('Error saving progress to Firestore:', error);
+            }
         }
 
         // Clear saved progress (used when starting fresh)
-        function clearProgress() {
-            localStorage.removeItem('gameProgress');
-            console.log('Progress cleared');
+        async function clearProgress() {
+            if (!currentUser) {
+                console.log('No user authenticated, cannot clear progress');
+                return;
+            }
+            
+            try {
+                const progressRef = doc(db, 'userProgress', currentUser.uid);
+                await setDoc(progressRef, {
+                    uid: currentUser.uid,
+                    email: currentUser.email,
+                    currentLevel: 1,
+                    lastSaved: Timestamp.now()
+                });
+                console.log('Progress cleared in Firestore');
+            } catch (error) {
+                console.error('Error clearing progress in Firestore:', error);
+            }
         }
-
-        // Load progress on initialization
-        loadProgress();
 
         // Get DOM elements
         const canvas = document.getElementById('gameCanvas');
@@ -1133,6 +1172,9 @@
                 submitNameButton.disabled = false;
                 isAuthenticating = false;
                 
+                // Load progress from Firestore first
+                await loadProgress();
+                
                 await loadUserCoins();
                 await loadAttemptsData();
                 await updateCurrentRank();
@@ -1266,7 +1308,7 @@
             keysPressed = { left: false, right: false };
             
             // Clear saved progress when starting fresh
-            clearProgress();
+            await clearProgress();
             
             levelDisplay.textContent = '1';
             scoreDisplay.textContent = '0';
@@ -1552,7 +1594,7 @@
         }
 
         // Complete level successfully
-        function completeLevelSuccess() {
+        async function completeLevelSuccess() {
             levelComplete = true;
             
             // Stop the game loop
@@ -1580,7 +1622,7 @@
             touchControls.classList.remove('active');
             
             // Save progress - player has reached this level
-            saveProgress();
+            await saveProgress();
             
             // Show level complete screen
             levelScoreDisplay.textContent = score;
@@ -1765,17 +1807,18 @@
             if (user) {
                 currentUser = user;
                 console.log('User authenticated:', user.email);
+                await loadProgress();
                 await loadUserCoins();
                 await loadHighScore();
                 await loadUserBestScore();
+                
+                // Update level display with loaded progress
+                levelDisplay.textContent = currentLevel;
             } else {
                 console.log('No user authenticated');
                 currentUser = null;
             }
         });
-        
-        // Update level display with loaded progress
-        levelDisplay.textContent = currentLevel;
         
         loadHighScore();
         render();
