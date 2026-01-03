@@ -1604,8 +1604,10 @@
             currentLevel += 1;
             levelDisplay.textContent = currentLevel;
             
-            // Increase fall speed by 15%
-            fallSpeed *= 1.15;
+            // Increase fall speed by 25% until level 10, then keep it constant
+            if (currentLevel <= 10) {
+                fallSpeed *= 1.25;
+            }
             
             // Reset level-specific state but keep score and currency
             levelComplete = false;
