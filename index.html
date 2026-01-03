@@ -342,7 +342,7 @@
             <div class="score-item">Score: <span id="score">0</span></div>
             <div class="score-item">Rank: <span id="currentRank">#-</span></div>
             <div class="score-item">Coins: <span id="coins">0</span></div>
-            <div class="score-item">Attempts: <span id="attempts">0/1</span></div>
+            <div class="score-item">Attempts: <span id="attempts">0/100</span></div>
         </div>
         
         <div class="game-canvas-wrapper">
@@ -481,7 +481,7 @@
         const COIN_SIZE = 20;
         const GAME_WIDTH = 400;
         const GAME_HEIGHT = 600;
-        const MAX_ATTEMPTS_PER_DAY = 1; // Change this to adjust daily attempt limit
+        const MAX_ATTEMPTS_PER_DAY = 100; // Change this to adjust daily attempt limit
 
         // Game state
         let player = { x: 175, y: 100 };
