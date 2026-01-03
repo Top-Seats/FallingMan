@@ -378,6 +378,7 @@
             <div id="gameOverScreen" class="overlay-screen" style="display: none;">
                 <div class="screen-content">
                     <h1>Game Over!</h1>
+                    <p class="stat">Level Reached: <span id="finalLevel">1</span></p>
                     <p class="stat">Your Score: <span id="finalScore">0</span></p>
                     <p class="stat">High Score: <span id="finalHighScore">0</span></p>
                     <p class="stat">Your Rank: <span id="finalRank">Calculating...</span></p>
@@ -504,6 +505,7 @@
         let score = 0;
         let currency = 0;
         let currentLevel = 1;
+        let fallSpeed = 2;
         let gameOver = false;
         let levelComplete = false;
         let showIntro = true;
@@ -545,6 +547,7 @@
         const currentRankDisplay = document.getElementById('currentRank');
         const coinsDisplay = document.getElementById('coins');
         const attemptsDisplay = document.getElementById('attempts');
+        const finalLevelDisplay = document.getElementById('finalLevel');
         const finalScoreDisplay = document.getElementById('finalScore');
         const finalHighScoreDisplay = document.getElementById('finalHighScore');
         const finalCoinsDisplay = document.getElementById('finalCoins');
@@ -1208,6 +1211,7 @@
             score = 0;
             currency = 0;
             currentLevel = 1;
+            fallSpeed = 2;
             levelComplete = false;
             cameraY = 0;
             lastSpawnY = 0;
@@ -1421,7 +1425,7 @@
             }
             
             // Move player down
-            player.y += 2;
+            player.y += fallSpeed;
             
             // Handle horizontal movement
             if (keysPressed.left) {
@@ -1432,7 +1436,7 @@
             }
             
             // Update camera
-            cameraY += 2;
+            cameraY += fallSpeed;
             
             // Increase score
             score += 1;
@@ -1545,6 +1549,7 @@
                 await saveUserCoins(currency);
             }
             
+            finalLevelDisplay.textContent = currentLevel;
             finalScoreDisplay.textContent = score;
             finalHighScoreDisplay.textContent = highScore;
             finalCoinsDisplay.textContent = currency;
@@ -1595,6 +1600,13 @@
             // Hide level complete screen
             levelCompleteScreen.style.display = 'none';
             
+            // Increment level
+            currentLevel += 1;
+            levelDisplay.textContent = currentLevel;
+            
+            // Increase fall speed by 15%
+            fallSpeed *= 1.15;
+            
             // Reset level-specific state but keep score and currency
             levelComplete = false;
             player = { x: 175, y: 100 };
@@ -1603,10 +1615,6 @@
             cameraY = 0;
             lastSpawnY = 0;
             keysPressed = { left: false, right: false };
-            
-            // Increment level (for now it just stays at 1, but ready for future)
-            // currentLevel += 1;
-            // levelDisplay.textContent = currentLevel;
             
             // Restart the game loop
             gameLoop();
