@@ -301,17 +301,10 @@
                         <span class="info-label">Referred By:</span>
                         <span class="info-value" id="accountReferredBy">None</span>
                     </div>
-                </div>
-
-                <!-- Update Name Section -->
-                <div class="form-section" style="margin-top: 30px;">
-                    <h2 style="font-size: 20px; margin-bottom: 15px; color: #1f2937;">Update Name</h2>
-                    <div class="form-group">
-                        <label for="updateName">New Name</label>
-                        <input type="text" id="updateName" placeholder="Enter new name" maxlength="20">
+                    <div class="info-row">
+                        <span class="info-label">Account Created:</span>
+                        <span class="info-value" id="accountCreatedAt">-</span>
                     </div>
-                    <button id="updateNameButton" class="btn btn-primary" style="width: 100%;">Update Name</button>
-                    <div id="updateMessage" class="message" style="margin-top: 15px;"></div>
                 </div>
 
                 <button id="logoutButton" class="btn btn-danger" style="margin-top: 20px;">Log Out</button>
@@ -359,9 +352,7 @@
         const accountShareCode = document.getElementById('accountShareCode');
         const accountBonusAttempts = document.getElementById('accountBonusAttempts');
         const accountReferredBy = document.getElementById('accountReferredBy');
-        const updateName = document.getElementById('updateName');
-        const updateNameButton = document.getElementById('updateNameButton');
-        const updateMessage = document.getElementById('updateMessage');
+        const accountCreatedAt = document.getElementById('accountCreatedAt');
 
         let currentUser = null;
 
@@ -508,6 +499,19 @@
                     accountShareCode.textContent = data.shareCode || 'Not generated';
                     accountBonusAttempts.textContent = data.bonusAttempts || 0;
                     accountReferredBy.textContent = data.referredByCode || 'None';
+                    
+                    // Display account creation date
+                    if (data.createdAt) {
+                        const createdDate = data.createdAt.toDate();
+                        const formattedDate = createdDate.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        });
+                        accountCreatedAt.textContent = formattedDate;
+                    } else {
+                        accountCreatedAt.textContent = 'Unknown';
+                    }
                 }
                 
                 // Load name from localStorage
@@ -633,48 +637,6 @@
             } finally {
                 loginButton.disabled = false;
                 loginButton.textContent = 'Log In';
-            }
-        });
-
-        // Update name handler
-        updateNameButton.addEventListener('click', async () => {
-            const newName = updateName.value.trim();
-            
-            if (!newName) {
-                updateMessage.textContent = 'Please enter a name.';
-                updateMessage.className = 'message error';
-                return;
-            }
-            
-            updateNameButton.disabled = true;
-            updateNameButton.textContent = 'Updating...';
-            
-            try {
-                // Save to localStorage
-                localStorage.setItem('playerName', newName);
-                
-                // Update display
-                accountName.textContent = newName;
-                
-                updateMessage.textContent = '✓ Name updated successfully!';
-                updateMessage.className = 'message success';
-                
-                // Clear input
-                updateName.value = '';
-                
-            } catch (error) {
-                console.error('Error updating name:', error);
-                updateMessage.textContent = 'Error updating name: ' + error.message;
-                updateMessage.className = 'message error';
-            } finally {
-                updateNameButton.disabled = false;
-                updateNameButton.textContent = 'Update Name';
-                
-                // Clear message after 3 seconds
-                setTimeout(() => {
-                    updateMessage.className = 'message';
-                    updateMessage.textContent = '';
-                }, 3000);
             }
         });
 
