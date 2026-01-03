@@ -202,6 +202,22 @@
                 <div class="prize-label">#1 Leaderboard Prize</div>
             </div>
 
+            <!-- Countdown Timer Section -->
+            <div id="countdownSection" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 12px; padding: 30px; margin: 30px 0; text-align: center; color: white; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);">
+                <h2 style="font-size: 24px; margin-bottom: 15px; color: white;">⏱️ Current Leader Timer</h2>
+                <div id="leaderInfo" style="font-size: 18px; margin-bottom: 20px; opacity: 0.9;">Loading...</div>
+                <div id="countdownTimer" style="font-size: 48px; font-weight: bold; font-family: monospace; margin: 20px 0; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);">--:--:--</div>
+                <div id="countdownStatus" style="font-size: 16px; opacity: 0.9;">Checking leaderboard...</div>
+            </div>
+
+            <!-- Winner Message (hidden by default) -->
+            <div id="winnerMessage" style="display: none; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 30px; margin: 30px 0; text-align: center; color: white; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
+                <div style="font-size: 48px; margin-bottom: 15px;">🎉</div>
+                <h2 style="font-size: 32px; margin-bottom: 15px; color: white;">Congratulations!</h2>
+                <div id="winnerText" style="font-size: 20px; margin-bottom: 20px;">You've held #1 for 24 hours!</div>
+                <div style="font-size: 18px; opacity: 0.9;">Please DM a screenshot of your score, rank, and this timer at 0 to claim your prize!</div>
+            </div>
+
             <h2>How to Win</h2>
             <p>Compete against players worldwide for a chance to win real cash! The prize system is designed to reward the most skilled and consistent player.</p>
 
@@ -233,5 +249,202 @@
             </div>
         </div>
     </div>
+
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getFirestore, collection, query, orderBy, limit, getDocs, doc, getDoc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBic7ZeUQDgPZqORn0t6-wUCGHfEPASE10",
+            authDomain: "topseat-d1d5d.firebaseapp.com",
+            projectId: "topseat-d1d5d",
+            storageBucket: "topseat-d1d5d.firebasestorage.app",
+            messagingSenderId: "770306321288",
+            appId: "1:770306321288:web:0e768acffc4d189672283d"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentUser = null;
+        let countdownInterval = null;
+        let currentLeader = null;
+
+        // DOM elements
+        const leaderInfo = document.getElementById('leaderInfo');
+        const countdownTimer = document.getElementById('countdownTimer');
+        const countdownStatus = document.getElementById('countdownStatus');
+        const winnerMessage = document.getElementById('winnerMessage');
+        const winnerText = document.getElementById('winnerText');
+
+        // Get current #1 player from leaderboard
+        async function getCurrentLeader() {
+            try {
+                const scoresQuery = query(
+                    collection(db, 'scores'),
+                    orderBy('score', 'desc'),
+                    limit(1)
+                );
+                const scoresSnapshot = await getDocs(scoresQuery);
+                
+                if (!scoresSnapshot.empty) {
+                    const topScore = scoresSnapshot.docs[0].data();
+                    return {
+                        uid: topScore.uid,
+                        email: topScore.email,
+                        name: topScore.name || 'Unknown',
+                        score: topScore.score,
+                        timestamp: topScore.timestamp
+                    };
+                }
+                return null;
+            } catch (error) {
+                console.error('Error getting current leader:', error);
+                return null;
+            }
+        }
+
+        // Get or create leader tracking document
+        async function getLeaderTracking() {
+            try {
+                const trackingRef = doc(db, 'leaderTracking', 'current');
+                const trackingDoc = await getDoc(trackingRef);
+                
+                if (trackingDoc.exists()) {
+                    return trackingDoc.data();
+                }
+                return null;
+            } catch (error) {
+                console.error('Error getting leader tracking:', error);
+                return null;
+            }
+        }
+
+        // Update leader tracking when leader changes
+        async function updateLeaderTracking(leader) {
+            try {
+                const trackingRef = doc(db, 'leaderTracking', 'current');
+                const trackingDoc = await getDoc(trackingRef);
+                
+                // Check if this is a new leader
+                if (!trackingDoc.exists() || trackingDoc.data().uid !== leader.uid) {
+                    // New leader - reset timer
+                    await setDoc(trackingRef, {
+                        uid: leader.uid,
+                        email: leader.email,
+                        name: leader.name,
+                        score: leader.score,
+                        startTime: Timestamp.now(),
+                        lastChecked: Timestamp.now()
+                    });
+                    console.log('New leader detected, timer reset');
+                } else {
+                    // Same leader - just update lastChecked
+                    await setDoc(trackingRef, {
+                        ...trackingDoc.data(),
+                        lastChecked: Timestamp.now()
+                    });
+                }
+            } catch (error) {
+                console.error('Error updating leader tracking:', error);
+            }
+        }
+
+        // Format time as HH:MM:SS
+        function formatTime(milliseconds) {
+            const totalSeconds = Math.floor(milliseconds / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        // Update countdown display
+        async function updateCountdown() {
+            const leader = await getCurrentLeader();
+            
+            if (!leader) {
+                leaderInfo.textContent = 'No scores yet!';
+                countdownTimer.textContent = '24:00:00';
+                countdownStatus.textContent = 'Waiting for first score...';
+                return;
+            }
+
+            // Update tracking
+            await updateLeaderTracking(leader);
+            
+            // Get tracking data
+            const tracking = await getLeaderTracking();
+            
+            if (!tracking) {
+                leaderInfo.textContent = 'Loading...';
+                return;
+            }
+
+            // Display leader info
+            leaderInfo.textContent = `Current Leader: ${tracking.name} (Score: ${tracking.score.toLocaleString()})`;
+
+            // Calculate time remaining
+            const startTime = tracking.startTime.toMillis();
+            const now = Date.now();
+            const elapsed = now - startTime;
+            const twentyFourHours = 24 * 60 * 60 * 1000;
+            const remaining = twentyFourHours - elapsed;
+
+            if (remaining <= 0) {
+                // Timer expired - check if current user is the winner
+                countdownTimer.textContent = '00:00:00';
+                countdownStatus.textContent = '🎉 Time completed!';
+                
+                if (currentUser && currentUser.uid === tracking.uid) {
+                    // Show winner message to the current user
+                    winnerMessage.style.display = 'block';
+                    winnerText.textContent = `You've held #1 for 24 hours with ${tracking.score.toLocaleString()} points!`;
+                } else {
+                    countdownStatus.textContent = `${tracking.name} has held #1 for 24 hours!`;
+                }
+            } else {
+                // Timer still running
+                countdownTimer.textContent = formatTime(remaining);
+                
+                const hoursRemaining = Math.floor(remaining / (60 * 60 * 1000));
+                const minutesRemaining = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+                
+                if (hoursRemaining > 1) {
+                    countdownStatus.textContent = `${tracking.name} has been #1 for ${24 - hoursRemaining} hours`;
+                } else if (hoursRemaining === 1) {
+                    countdownStatus.textContent = `Less than 1 hour until ${tracking.name} wins!`;
+                } else {
+                    countdownStatus.textContent = `Final ${minutesRemaining} minutes!`;
+                }
+                
+                // Hide winner message if timer is still running
+                winnerMessage.style.display = 'none';
+            }
+        }
+
+        // Start countdown updates
+        function startCountdown() {
+            updateCountdown(); // Initial update
+            countdownInterval = setInterval(updateCountdown, 1000); // Update every second
+        }
+
+        // Initialize when page loads
+        onAuthStateChanged(auth, async (user) => {
+            currentUser = user;
+            startCountdown();
+        });
+
+        // Start even if not logged in
+        if (!currentUser) {
+            startCountdown();
+        }
+    </script>
 </body>
 </html>
