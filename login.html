@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login / Account - Sky Fall</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(to bottom, #60a5fa, #2563eb);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .tagline {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #22c55e;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+            transition: all 0.2s;
+            margin-bottom: 30px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .back-button:hover {
+            background: #16a34a;
+            transform: scale(1.05);
+        }
+
+        .content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            color: #1f2937;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 30px;
+            color: #2563eb;
+            text-align: center;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #1f2937;
+            font-size: 16px;
+        }
+
+        input[type="email"],
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #1e40af;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #4b5563;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #dc2626;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .message.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+            display: block;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+            display: block;
+        }
+
+        .message.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+            display: block;
+        }
+
+        .account-info {
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #d1d5db;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: bold;
+            color: #4b5563;
+        }
+
+        .info-value {
+            color: #1f2937;
+            font-family: monospace;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 36px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .content {
+                padding: 25px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎮 Sky Fall</div>
+            <div class="tagline">Manage your account</div>
+        </div>
+
+        <a href="index.html" class="back-button">⬅ Back to Game</a>
+
+        <div class="content">
+            <h1>Login / Account</h1>
+
+            <div id="messageArea" class="message"></div>
+
+            <!-- Login/Signup Form (shown when not logged in) -->
+            <div id="authForm" class="form-section">
+                <div class="form-group">
+                    <label for="loginEmail">Email Address</label>
+                    <input type="email" id="loginEmail" placeholder="your@email.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="loginName">Name</label>
+                    <input type="text" id="loginName" placeholder="Your name" maxlength="20" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="referralCode">Friend's Share Code (optional - new accounts only)</label>
+                    <input type="text" id="referralCode" placeholder="ABC123" maxlength="10" style="text-transform: uppercase;">
+                    <small style="color: #6b7280; margin-top: 5px; display: block;">Enter a friend's code to give them 5 bonus attempts!</small>
+                </div>
+
+                <div class="button-group">
+                    <button id="signupButton" class="btn btn-primary">Sign Up / Create Account</button>
+                    <button id="loginButton" class="btn btn-secondary">Log In</button>
+                </div>
+            </div>
+
+            <!-- Account Info (shown when logged in) -->
+            <div id="accountInfo" class="hidden">
+                <div class="account-info">
+                    <div class="info-row">
+                        <span class="info-label">Email:</span>
+                        <span class="info-value" id="accountEmail">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Name:</span>
+                        <span class="info-value" id="accountName">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Your Share Code:</span>
+                        <span class="info-value" id="accountShareCode">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Bonus Attempts:</span>
+                        <span class="info-value" id="accountBonusAttempts">0</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Referred By:</span>
+                        <span class="info-value" id="accountReferredBy">None</span>
+                    </div>
+                </div>
+
+                <button id="logoutButton" class="btn btn-danger">Log Out</button>
+            </div>
+
+            <div style="margin-top: 40px; text-align: center;">
+                <a href="index.html" class="back-button">Back to Game 🎮</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, runTransaction, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBic7ZeUQDgPZqORn0t6-wUCGHfEPASE10",
+            authDomain: "topseat-d1d5d.firebaseapp.com",
+            projectId: "topseat-d1d5d",
+            storageBucket: "topseat-d1d5d.firebasestorage.app",
+            messagingSenderId: "770306321288",
+            appId: "1:770306321288:web:0e768acffc4d189672283d"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // DOM elements
+        const messageArea = document.getElementById('messageArea');
+        const authForm = document.getElementById('authForm');
+        const accountInfo = document.getElementById('accountInfo');
+        const loginEmail = document.getElementById('loginEmail');
+        const loginName = document.getElementById('loginName');
+        const referralCode = document.getElementById('referralCode');
+        const signupButton = document.getElementById('signupButton');
+        const loginButton = document.getElementById('loginButton');
+        const logoutButton = document.getElementById('logoutButton');
+        const accountEmail = document.getElementById('accountEmail');
+        const accountName = document.getElementById('accountName');
+        const accountShareCode = document.getElementById('accountShareCode');
+        const accountBonusAttempts = document.getElementById('accountBonusAttempts');
+        const accountReferredBy = document.getElementById('accountReferredBy');
+
+        let currentUser = null;
+
+        // Email validation
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        // Show message
+        function showMessage(text, type = 'info') {
+            messageArea.textContent = text;
+            messageArea.className = `message ${type}`;
+            setTimeout(() => {
+                messageArea.className = 'message';
+                messageArea.textContent = '';
+            }, 5000);
+        }
+
+        // Generate share code
+        function generateShareCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        // Ensure user has a share code
+        async function ensureUserShareCode(uid) {
+            try {
+                const userRef = doc(db, 'users', uid);
+                const userDoc = await getDoc(userRef);
+                
+                if (userDoc.exists() && userDoc.data().shareCode) {
+                    return userDoc.data().shareCode;
+                }
+                
+                // Generate unique code
+                let shareCode = generateShareCode();
+                let isUnique = false;
+                let attempts = 0;
+                
+                while (!isUnique && attempts < 10) {
+                    const existingQuery = query(
+                        collection(db, 'users'),
+                        where('shareCode', '==', shareCode)
+                    );
+                    const existingDocs = await getDocs(existingQuery);
+                    
+                    if (existingDocs.empty) {
+                        isUnique = true;
+                    } else {
+                        shareCode = generateShareCode();
+                        attempts++;
+                    }
+                }
+                
+                await setDoc(userRef, {
+                    uid: uid,
+                    shareCode: shareCode,
+                    bonusAttempts: 0,
+                    createdAt: Timestamp.now()
+                }, { merge: true });
+                
+                return shareCode;
+            } catch (error) {
+                console.error('Error ensuring share code:', error);
+                return null;
+            }
+        }
+
+        // Process referral code
+        async function processReferralCode(newUserUid, referralCodeValue, newUserName) {
+            if (!referralCodeValue || referralCodeValue.trim() === '') {
+                return { success: false, message: '' };
+            }
+            
+            try {
+                referralCodeValue = referralCodeValue.trim().toUpperCase();
+                
+                // Check if user already has a referredByCode
+                const newUserRef = doc(db, 'users', newUserUid);
+                const newUserDoc = await getDoc(newUserRef);
+                
+                if (newUserDoc.exists() && newUserDoc.data().referredByCode) {
+                    return { success: false, message: 'You have already used a referral code.' };
+                }
+                
+                // Find the referrer by share code
+                const referrerQuery = query(
+                    collection(db, 'users'),
+                    where('shareCode', '==', referralCodeValue)
+                );
+                const referrerDocs = await getDocs(referrerQuery);
+                
+                if (referrerDocs.empty) {
+                    return { success: false, message: 'Referral code not found. Continuing without referral.' };
+                }
+                
+                const referrerDoc = referrerDocs.docs[0];
+                const referrerUid = referrerDoc.data().uid;
+                
+                // Prevent self-referral
+                if (referrerUid === newUserUid) {
+                    return { success: false, message: 'You cannot use your own referral code.' };
+                }
+                
+                // Award bonus attempts using transaction
+                await runTransaction(db, async (transaction) => {
+                    const referrerRef = doc(db, 'users', referrerUid);
+                    const referrerSnapshot = await transaction.get(referrerRef);
+                    
+                    if (!referrerSnapshot.exists()) {
+                        throw new Error('Referrer not found');
+                    }
+                    
+                    const currentBonus = referrerSnapshot.data().bonusAttempts || 0;
+                    transaction.update(referrerRef, {
+                        bonusAttempts: currentBonus + 5
+                    });
+                    
+                    transaction.update(newUserRef, {
+                        referredByCode: referralCodeValue,
+                        referredAt: Timestamp.now()
+                    });
+                });
+                
+                return { success: true, message: `✓ Referral successful! Your friend will receive 5 bonus attempts.` };
+            } catch (error) {
+                console.error('Error processing referral:', error);
+                return { success: false, message: 'Error processing referral code.' };
+            }
+        }
+
+        // Load account info
+        async function loadAccountInfo(uid) {
+            try {
+                const userRef = doc(db, 'users', uid);
+                const userDoc = await getDoc(userRef);
+                
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    accountShareCode.textContent = data.shareCode || 'Not generated';
+                    accountBonusAttempts.textContent = data.bonusAttempts || 0;
+                    accountReferredBy.textContent = data.referredByCode || 'None';
+                }
+                
+                // Load name from localStorage
+                const savedName = localStorage.getItem('playerName');
+                accountName.textContent = savedName || 'Not set';
+            } catch (error) {
+                console.error('Error loading account info:', error);
+            }
+        }
+
+        // Show logged in view
+        async function showLoggedIn(user) {
+            authForm.classList.add('hidden');
+            accountInfo.classList.remove('hidden');
+            accountEmail.textContent = user.email;
+            await loadAccountInfo(user.uid);
+        }
+
+        // Show logged out view
+        function showLoggedOut() {
+            authForm.classList.remove('hidden');
+            accountInfo.classList.add('hidden');
+        }
+
+        // Sign up handler
+        signupButton.addEventListener('click', async () => {
+            const email = loginEmail.value.trim();
+            const name = loginName.value.trim();
+            const refCode = referralCode.value.trim();
+            
+            if (!email || !isValidEmail(email)) {
+                showMessage('Please enter a valid email address.', 'error');
+                return;
+            }
+            
+            if (!name) {
+                showMessage('Please enter your name.', 'error');
+                return;
+            }
+            
+            signupButton.disabled = true;
+            signupButton.textContent = 'Creating account...';
+            
+            try {
+                const password = 'skyfall_' + email;
+                let userCredential;
+                let isNewUser = false;
+                
+                try {
+                    userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    isNewUser = true;
+                } catch (error) {
+                    if (error.code === 'auth/email-already-in-use') {
+                        userCredential = await signInWithEmailAndPassword(auth, email, password);
+                        showMessage('Account already exists. Logging you in...', 'info');
+                    } else {
+                        throw error;
+                    }
+                }
+                
+                currentUser = userCredential.user;
+                localStorage.setItem('playerEmail', email);
+                localStorage.setItem('playerName', name);
+                
+                // Ensure share code
+                await ensureUserShareCode(currentUser.uid);
+                
+                // Process referral if new user
+                if (isNewUser && refCode) {
+                    const result = await processReferralCode(currentUser.uid, refCode, name);
+                    showMessage(result.message || 'Account created successfully!', result.success ? 'success' : 'info');
+                } else if (isNewUser) {
+                    showMessage('Account created successfully!', 'success');
+                }
+                
+                await showLoggedIn(currentUser);
+                
+            } catch (error) {
+                console.error('Error signing up:', error);
+                showMessage('Error creating account: ' + error.message, 'error');
+            } finally {
+                signupButton.disabled = false;
+                signupButton.textContent = 'Sign Up / Create Account';
+            }
+        });
+
+        // Login handler
+        loginButton.addEventListener('click', async () => {
+            const email = loginEmail.value.trim();
+            const name = loginName.value.trim();
+            
+            if (!email || !isValidEmail(email)) {
+                showMessage('Please enter a valid email address.', 'error');
+                return;
+            }
+            
+            loginButton.disabled = true;
+            loginButton.textContent = 'Logging in...';
+            
+            try {
+                const password = 'skyfall_' + email;
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                
+                currentUser = userCredential.user;
+                localStorage.setItem('playerEmail', email);
+                if (name) {
+                    localStorage.setItem('playerName', name);
+                }
+                
+                // Ensure share code
+                await ensureUserShareCode(currentUser.uid);
+                
+                showMessage('Logged in successfully!', 'success');
+                await showLoggedIn(currentUser);
+                
+            } catch (error) {
+                console.error('Error logging in:', error);
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                    showMessage('Account not found. Please sign up first.', 'error');
+                } else {
+                    showMessage('Error logging in: ' + error.message, 'error');
+                }
+            } finally {
+                loginButton.disabled = false;
+                loginButton.textContent = 'Log In';
+            }
+        });
+
+        // Logout handler
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                currentUser = null;
+                showMessage('Logged out successfully.', 'success');
+                showLoggedOut();
+                loginEmail.value = '';
+                loginName.value = '';
+                referralCode.value = '';
+            } catch (error) {
+                console.error('Error logging out:', error);
+                showMessage('Error logging out: ' + error.message, 'error');
+            }
+        });
+
+        // Initialize
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                await showLoggedIn(user);
+            } else {
+                showLoggedOut();
+            }
+        });
+
+        // Prefill email if already saved
+        const savedEmail = localStorage.getItem('playerEmail');
+        const savedName = localStorage.getItem('playerName');
+        if (savedEmail) {
+            loginEmail.value = savedEmail;
+        }
+        if (savedName) {
+            loginName.value = savedName;
+        }
+    </script>
+</body>
+</html>
