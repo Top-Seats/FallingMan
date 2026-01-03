@@ -819,6 +819,14 @@
             }
         }
 
+        // Get total available attempts (base + bonus)
+        async function getTotalAvailableAttempts() {
+            if (!currentUser) return MAX_ATTEMPTS_PER_DAY;
+            
+            const bonusAttempts = await getBonusAttempts(currentUser.uid);
+            return MAX_ATTEMPTS_PER_DAY + bonusAttempts;
+        }
+
         // Process referral code when new user signs up
         async function processReferralCode(newUserUid, referralCode) {
             if (!referralCode || referralCode.trim() === '') {
@@ -912,14 +920,8 @@
                     deviceCount = deviceAttemptsDoc.data().count || 0;
                 }
                 
-                // Get bonus attempts
-                const bonusAttempts = await getBonusAttempts(currentUser.uid);
-                
-                // Return the maximum of the two (if either is maxed out, block play) minus bonus attempts
-                const usedAttempts = Math.max(uidCount, deviceCount);
-                const effectiveUsed = Math.max(0, usedAttempts - bonusAttempts);
-                
-                return effectiveUsed;
+                // Return the maximum of the two (if either is maxed out, block play)
+                return Math.max(uidCount, deviceCount);
             } catch (error) {
                 console.error('Error getting attempts:', error);
                 return 0;
@@ -935,6 +937,10 @@
             const dateKey = getTodayDateKey();
             const uidAttemptsRef = doc(db, 'attempts', `${currentUser.uid}_${dateKey}`);
             const deviceAttemptsRef = doc(db, 'attempts', `${deviceId}_${dateKey}`);
+            
+            // Get bonus attempts before transaction
+            const bonusAttempts = await getBonusAttempts(currentUser.uid);
+            const totalAvailable = MAX_ATTEMPTS_PER_DAY + bonusAttempts;
             
             try {
                 await runTransaction(db, async (transaction) => {
@@ -953,8 +959,8 @@
                         deviceCount = deviceAttemptsDoc.data().count || 0;
                     }
                     
-                    // If either has reached max, block
-                    if (uidCount >= MAX_ATTEMPTS_PER_DAY || deviceCount >= MAX_ATTEMPTS_PER_DAY) {
+                    // If either has reached max (including bonus), block
+                    if (uidCount >= totalAvailable || deviceCount >= totalAvailable) {
                         throw new Error('Maximum attempts reached');
                     }
                     
@@ -1059,7 +1065,12 @@
             
             checkAttemptsReset();
             attemptsUsedToday = await getAttemptsToday();
-            attemptsDisplay.textContent = `${attemptsUsedToday}/${MAX_ATTEMPTS_PER_DAY}`;
+            
+            // Get bonus attempts and add to max
+            const bonusAttempts = await getBonusAttempts(currentUser.uid);
+            const totalAvailable = MAX_ATTEMPTS_PER_DAY + bonusAttempts;
+            
+            attemptsDisplay.textContent = `${attemptsUsedToday}/${totalAvailable}`;
         }
 
         // Load high score from localStorage and fetch current rank
@@ -1244,8 +1255,11 @@
             // Check attempts first
             await loadAttemptsData();
             
+            // Get total available attempts (including bonuses)
+            const totalAvailable = await getTotalAvailableAttempts();
+            
             // Check if player has attempts remaining
-            if (attemptsUsedToday >= MAX_ATTEMPTS_PER_DAY) {
+            if (attemptsUsedToday >= totalAvailable) {
                 noAttemptsScreen.style.display = 'flex';
                 noAttemptsHighScore.textContent = highScore;
                 if (currentRank) {
@@ -1263,7 +1277,11 @@
             // Try to increment attempts in Firestore BEFORE starting game
             try {
                 await incrementAttempts();
-                attemptsDisplay.textContent = `${attemptsUsedToday}/${MAX_ATTEMPTS_PER_DAY}`;
+                
+                // Update display with new count
+                const newBonusAttempts = await getBonusAttempts(currentUser.uid);
+                const newTotalAvailable = MAX_ATTEMPTS_PER_DAY + newBonusAttempts;
+                attemptsDisplay.textContent = `${attemptsUsedToday}/${newTotalAvailable}`;
             } catch (error) {
                 console.error('Failed to increment attempts:', error);
                 // If we hit max attempts, show the no attempts screen and stop any game loop
@@ -1366,8 +1384,11 @@
                 // Update level display to show saved progress
                 levelDisplay.textContent = currentLevel;
                 
+                // Get total available attempts (including bonuses)
+                const totalAvailable = await getTotalAvailableAttempts();
+                
                 // Check if they have attempts left BEFORE trying to start
-                if (attemptsUsedToday >= MAX_ATTEMPTS_PER_DAY) {
+                if (attemptsUsedToday >= totalAvailable) {
                     noAttemptsScreen.style.display = 'flex';
                     noAttemptsHighScore.textContent = highScore;
                     if (currentRank) {
@@ -1441,8 +1462,11 @@
             // Check attempts
             await loadAttemptsData();
             
+            // Get total available attempts (including bonuses)
+            const totalAvailable = await getTotalAvailableAttempts();
+            
             // Check if player has attempts remaining
-            if (attemptsUsedToday >= MAX_ATTEMPTS_PER_DAY) {
+            if (attemptsUsedToday >= totalAvailable) {
                 noAttemptsScreen.style.display = 'flex';
                 noAttemptsHighScore.textContent = highScore;
                 if (currentRank) {
