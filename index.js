@@ -6,7 +6,18 @@ const PORT = process.env.PORT || 3000;
 
 // CORS middleware - allow requests from your frontend
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://topseat.us');
+  const allowedOrigins = [
+    'https://topseat.us',
+    'https://www.topseat.us',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   
