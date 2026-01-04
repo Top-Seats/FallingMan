@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attempts - Sky Fall</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(to bottom, #60a5fa, #2563eb);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .tagline {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #22c55e;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+            transition: all 0.2s;
+            margin-bottom: 30px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .back-button:hover {
+            background: #16a34a;
+            transform: scale(1.05);
+        }
+
+        .content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            color: #1f2937;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 15px;
+            color: #2563eb;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+
+        .current-status {
+            background: #f3f4f6;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 40px;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #d1d5db;
+        }
+
+        .status-row:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            font-weight: bold;
+            color: #4b5563;
+            font-size: 16px;
+        }
+
+        .status-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2563eb;
+        }
+
+        .pro-badge {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-top: 30px;
+        }
+
+        .product-card {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 30px;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-color: #2563eb;
+        }
+
+        .product-card.featured {
+            border: 3px solid #fbbf24;
+            background: linear-gradient(to bottom, #fffbeb, white);
+        }
+
+        .product-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .product-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+
+        .product-description {
+            font-size: 16px;
+            color: #6b7280;
+            margin-bottom: 20px;
+            min-height: 48px;
+        }
+
+        .product-price {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 20px;
+        }
+
+        .product-price .currency {
+            font-size: 24px;
+        }
+
+        .buy-button {
+            width: 100%;
+            padding: 14px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .buy-button:hover {
+            background: #1e40af;
+            transform: scale(1.02);
+        }
+
+        .buy-button.featured {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        }
+
+        .buy-button.featured:hover {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-size: 16px;
+        }
+
+        .message.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+            display: block;
+        }
+
+        .message.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+            display: block;
+        }
+
+        .best-value {
+            background: #ef4444;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 36px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .content {
+                padding: 25px;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎮 Sky Fall</div>
+            <div class="tagline">Get more attempts and play more!</div>
+        </div>
+
+        <a href="index.html" class="back-button">⬅ Back to Game</a>
+
+        <div class="content">
+            <h1>🎫 Get More Attempts</h1>
+            <p class="subtitle">Never run out of attempts again! Choose the option that works best for you.</p>
+
+            <div id="messageArea" class="message"></div>
+
+            <!-- Current Status -->
+            <div class="current-status">
+                <h2 style="font-size: 20px; margin-bottom: 20px; color: #1f2937;">Your Current Status</h2>
+                <div class="status-row">
+                    <span class="status-label">Daily Attempts:</span>
+                    <span class="status-value" id="dailyAttempts">100</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Bonus Attempts:</span>
+                    <span class="status-value" id="bonusAttempts">0</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Total Available Today:</span>
+                    <span class="status-value" id="totalAttempts">100</span>
+                </div>
+                <div class="status-row">
+                    <span class="status-label">Subscription:</span>
+                    <span class="status-value" id="subscriptionStatus">Free</span>
+                </div>
+            </div>
+
+            <!-- Products Grid -->
+            <div class="products-grid">
+                <!-- 10 Attempts Pack -->
+                <div class="product-card">
+                    <div class="product-icon">🎫</div>
+                    <div class="product-name">10 Attempts</div>
+                    <div class="product-description">Get 10 extra attempts to use anytime</div>
+                    <div class="product-price"><span class="currency">$</span>0.99</div>
+                    <button class="buy-button" onclick="buyAttemptsPack(10, 0.99)">Buy Now</button>
+                </div>
+
+                <!-- 30 Attempts Pack -->
+                <div class="product-card">
+                    <div class="best-value">BEST VALUE</div>
+                    <div class="product-icon">🎫🎫</div>
+                    <div class="product-name">30 Attempts</div>
+                    <div class="product-description">Get 30 extra attempts and save!</div>
+                    <div class="product-price"><span class="currency">$</span>3.99</div>
+                    <button class="buy-button" onclick="buyAttemptsPack(30, 3.99)">Buy Now</button>
+                </div>
+
+                <!-- SkyFall Pro -->
+                <div class="product-card featured">
+                    <div class="product-icon">⭐</div>
+                    <div class="product-name">SkyFall Pro</div>
+                    <div class="product-description">Unlimited attempts forever! Never worry about running out.</div>
+                    <div class="product-price"><span class="currency">$</span>5.99<span style="font-size: 16px;">/month</span></div>
+                    <button class="buy-button featured" onclick="buyProSubscription(5.99)">Subscribe Now</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 40px; padding: 20px; background: #f3f4f6; border-radius: 8px;">
+                <h3 style="font-size: 18px; margin-bottom: 10px; color: #1f2937;">💡 Pro Tip</h3>
+                <p style="color: #6b7280; line-height: 1.6;">Bonus attempts from referrals and purchases never expire! Share your code with friends to earn free attempts.</p>
+            </div>
+
+            <div style="margin-top: 40px; text-align: center;">
+                <a href="index.html" class="back-button">Back to Game 🎮</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBic7ZeUQDgPZqORn0t6-wUCGHfEPASE10",
+            authDomain: "topseat-d1d5d.firebaseapp.com",
+            projectId: "topseat-d1d5d",
+            storageBucket: "topseat-d1d5d.firebasestorage.app",
+            messagingSenderId: "770306321288",
+            appId: "1:770306321288:web:0e768acffc4d189672283d"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let currentUser = null;
+        const MAX_ATTEMPTS_PER_DAY = 100;
+
+        // DOM elements
+        const messageArea = document.getElementById('messageArea');
+        const dailyAttempts = document.getElementById('dailyAttempts');
+        const bonusAttemptsEl = document.getElementById('bonusAttempts');
+        const totalAttemptsEl = document.getElementById('totalAttempts');
+        const subscriptionStatusEl = document.getElementById('subscriptionStatus');
+
+        // Show message
+        function showMessage(text, type = 'info') {
+            messageArea.textContent = text;
+            messageArea.className = `message ${type}`;
+            setTimeout(() => {
+                messageArea.className = 'message';
+                messageArea.textContent = '';
+            }, 5000);
+        }
+
+        // Load user attempts data
+        async function loadUserData() {
+            if (!currentUser) {
+                dailyAttempts.textContent = MAX_ATTEMPTS_PER_DAY;
+                bonusAttemptsEl.textContent = '0';
+                totalAttemptsEl.textContent = MAX_ATTEMPTS_PER_DAY;
+                subscriptionStatusEl.textContent = 'Not logged in';
+                return;
+            }
+
+            try {
+                const userRef = doc(db, 'users', currentUser.uid);
+                const userDoc = await getDoc(userRef);
+
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    const bonusAttempts = data.bonusAttempts || 0;
+                    const subscriptionStatus = data.subscriptionStatus || 'free';
+                    
+                    // Check if Pro subscriber
+                    const isPro = subscriptionStatus === 'pro' || subscriptionStatus === 'active';
+                    
+                    dailyAttempts.textContent = isPro ? '∞' : MAX_ATTEMPTS_PER_DAY;
+                    bonusAttemptsEl.textContent = bonusAttempts;
+                    totalAttemptsEl.textContent = isPro ? 'Unlimited' : (MAX_ATTEMPTS_PER_DAY + bonusAttempts);
+                    
+                    if (isPro) {
+                        subscriptionStatusEl.innerHTML = '<span class="pro-badge">⭐ PRO</span>';
+                    } else {
+                        subscriptionStatusEl.textContent = 'Free';
+                    }
+                } else {
+                    bonusAttemptsEl.textContent = '0';
+                    totalAttemptsEl.textContent = MAX_ATTEMPTS_PER_DAY;
+                    subscriptionStatusEl.textContent = 'Free';
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        }
+
+        // Placeholder: Buy attempts pack
+        window.buyAttemptsPack = function(attempts, price) {
+            showMessage(`🚧 Payments coming soon! You tried to purchase ${attempts} attempts for $${price}`, 'info');
+            console.log(`Purchase request: ${attempts} attempts for $${price}`);
+        };
+
+        // Placeholder: Buy Pro subscription
+        window.buyProSubscription = function(price) {
+            showMessage(`🚧 Payments coming soon! You tried to subscribe to SkyFall Pro for $${price}/month`, 'info');
+            console.log(`Subscription request: Pro for $${price}/month`);
+        };
+
+        // Initialize
+        onAuthStateChanged(auth, async (user) => {
+            currentUser = user;
+            await loadUserData();
+        });
+
+        // Load data even if not logged in
+        loadUserData();
+    </script>
+</body>
+</html>

@@ -819,12 +819,32 @@
             }
         }
 
-        // Get total available attempts (base + bonus)
+        // Get total available attempts (base + bonus or unlimited for Pro)
         async function getTotalAvailableAttempts() {
             if (!currentUser) return MAX_ATTEMPTS_PER_DAY;
             
-            const bonusAttempts = await getBonusAttempts(currentUser.uid);
-            return MAX_ATTEMPTS_PER_DAY + bonusAttempts;
+            try {
+                // Check subscription status
+                const userRef = doc(db, 'users', currentUser.uid);
+                const userDoc = await getDoc(userRef);
+                
+                if (userDoc.exists()) {
+                    const subscriptionStatus = userDoc.data().subscriptionStatus;
+                    
+                    // If user is Pro, return a very large number (unlimited)
+                    if (subscriptionStatus === 'pro' || subscriptionStatus === 'active') {
+                        return 999999; // Effectively unlimited
+                    }
+                }
+                
+                // Otherwise return base + bonus
+                const bonusAttempts = await getBonusAttempts(currentUser.uid);
+                return MAX_ATTEMPTS_PER_DAY + bonusAttempts;
+            } catch (error) {
+                console.error('Error getting total available attempts:', error);
+                const bonusAttempts = await getBonusAttempts(currentUser.uid);
+                return MAX_ATTEMPTS_PER_DAY + bonusAttempts;
+            }
         }
 
         // Process referral code when new user signs up
@@ -1066,10 +1086,28 @@
             checkAttemptsReset();
             attemptsUsedToday = await getAttemptsToday();
             
-            // Get bonus attempts and add to max
+            // Get bonus attempts and subscription status
             const bonusAttempts = await getBonusAttempts(currentUser.uid);
-            const totalAvailable = MAX_ATTEMPTS_PER_DAY + bonusAttempts;
             
+            // Check if Pro subscriber
+            try {
+                const userRef = doc(db, 'users', currentUser.uid);
+                const userDoc = await getDoc(userRef);
+                
+                if (userDoc.exists()) {
+                    const subscriptionStatus = userDoc.data().subscriptionStatus;
+                    
+                    if (subscriptionStatus === 'pro' || subscriptionStatus === 'active') {
+                        attemptsDisplay.textContent = `${attemptsUsedToday}/∞`;
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking subscription:', error);
+            }
+            
+            // Show normal count with bonus attempts
+            const totalAvailable = MAX_ATTEMPTS_PER_DAY + bonusAttempts;
             attemptsDisplay.textContent = `${attemptsUsedToday}/${totalAvailable}`;
         }
 
