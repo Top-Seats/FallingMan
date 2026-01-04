@@ -1,10 +1,29 @@
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const admin = require('firebase-admin');
+
+// Initialize Firebase Admin with environment variables
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+  }),
+});
+
+const db = admin.firestore();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS middleware - allow requests from your frontend
+// Price ID to product mapping
+const PRICE_MAPPINGS = {
+  'price_1SletDLPyAORHNqqeOJNrIIR': { type: 'attempts', amount: 10 },  // 10 attempts $0.99
+  'price_1SlevnLPyAORHNqqVbC789tB': { type: 'attempts', amount: 30 },  // 30 attempts $3.99
+  'price_1SleslLPyAORHNqqscTRj3T1': { type: 'subscription', plan: 'pro' }  // Pro subscription $5.99
+};
+
+// CORS middleware
 app.use((req, res, next) => {
   const allowedOrigins = [
     'https://topseat.us',
@@ -21,7 +40,6 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -29,39 +47,40 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware
-app.use(express.json());
+// Webhook needs raw body, other routes need JSON
+app.use((req, res, next) => {
+  if (req.originalUrl === '/webhook') {
+    next();
+  } else {
+    express.json()(req, res, next);
+  }
+});
 
-// Health check endpoint
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Create Stripe checkout session
+// Create checkout session
 app.post('/create-checkout-session', async (req, res) => {
   try {
-    const { priceId, mode } = req.body;
-
-    console.log('Received checkout request:', { priceId, mode });
+    const { priceId, mode, userEmail } = req.body;
 
     if (!priceId) {
-      console.log('Error: No priceId provided');
       return res.status(400).json({ error: 'priceId is required' });
     }
 
-    // Determine mode: 'subscription' for recurring, 'payment' for one-time
-    const sessionMode = mode || 'payment';
-    console.log('Using mode:', sessionMode);
+    if (!userEmail) {
+      return res.status(400).json({ error: 'userEmail is required' });
+    }
 
-    console.log('Creating Stripe session with:', {
-      mode: sessionMode,
-      priceId: priceId,
-      quantity: 1
-    });
+    const sessionMode = mode || 'payment';
 
     const session = await stripe.checkout.sessions.create({
       mode: sessionMode,
       payment_method_types: ['card'],
+      customer_email: userEmail,
+      client_reference_id: userEmail,
       line_items: [
         {
           price: priceId,
@@ -70,11 +89,10 @@ app.post('/create-checkout-session', async (req, res) => {
       ],
       success_url: 'https://topseat.us/success.html',
       cancel_url: 'https://topseat.us/cancel.html',
-    });
-
-    console.log('Stripe session created successfully:', {
-      id: session.id,
-      url: session.url
+      metadata: {
+        userEmail: userEmail,
+        priceId: priceId
+      }
     });
 
     res.json({
@@ -83,21 +101,148 @@ app.post('/create-checkout-session', async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating checkout session:', error);
-    console.error('Error details:', {
-      message: error.message,
-      type: error.type,
-      code: error.code,
-      statusCode: error.statusCode
-    });
-    res.status(500).json({ 
-      error: error.message,
-      type: error.type,
-      code: error.code
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Start server
+// Find user by email
+async function findUserByEmail(email) {
+  try {
+    const usersSnapshot = await db.collection('users')
+      .where('email', '==', email)
+      .limit(1)
+      .get();
+    
+    if (usersSnapshot.empty) {
+      return null;
+    }
+    
+    const userDoc = usersSnapshot.docs[0];
+    return {
+      id: userDoc.id,
+      data: userDoc.data()
+    };
+  } catch (error) {
+    console.error('Error finding user:', error);
+    return null;
+  }
+}
+
+// Add bonus attempts
+async function addBonusAttempts(userId, amount) {
+  try {
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) {
+      await userRef.set({
+        uid: userId,
+        bonusAttempts: amount,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      const currentBonus = userDoc.data().bonusAttempts || 0;
+      await userRef.update({
+        bonusAttempts: currentBonus + amount,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    
+    console.log(`✅ Added ${amount} bonus attempts to user ${userId}`);
+    return true;
+  } catch (error) {
+    console.error('Error adding bonus attempts:', error);
+    return false;
+  }
+}
+
+// Update subscription
+async function updateSubscriptionStatus(userId, status) {
+  try {
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) {
+      await userRef.set({
+        uid: userId,
+        subscriptionStatus: status,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      await userRef.update({
+        subscriptionStatus: status,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    
+    console.log(`✅ Updated subscription to ${status} for user ${userId}`);
+    return true;
+  } catch (error) {
+    console.error('Error updating subscription:', error);
+    return false;
+  }
+}
+
+// Webhook endpoint
+app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch (err) {
+    console.error('Webhook error:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  console.log('Webhook event:', event.type);
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object;
+        const userEmail = session.customer_email || session.client_reference_id;
+        const priceId = session.metadata?.priceId;
+        
+        if (!userEmail || !priceId) break;
+        
+        const user = await findUserByEmail(userEmail);
+        if (!user) break;
+        
+        const productInfo = PRICE_MAPPINGS[priceId];
+        if (!productInfo) break;
+        
+        if (productInfo.type === 'attempts') {
+          await addBonusAttempts(user.id, productInfo.amount);
+        } else if (productInfo.type === 'subscription') {
+          await updateSubscriptionStatus(user.id, 'active');
+        }
+        
+        break;
+      }
+      
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object;
+        const customer = await stripe.customers.retrieve(subscription.customer);
+        
+        if (customer.email) {
+          const user = await findUserByEmail(customer.email);
+          if (user) {
+            await updateSubscriptionStatus(user.id, 'cancelled');
+          }
+        }
+        break;
+      }
+    }
+  } catch (error) {
+    console.error('Webhook processing error:', error);
+  }
+
+  res.json({received: true});
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
