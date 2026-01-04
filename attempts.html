@@ -280,7 +280,7 @@
                 <h2 style="font-size: 20px; margin-bottom: 20px; color: #1f2937;">Your Current Status</h2>
                 <div class="status-row">
                     <span class="status-label">Daily Attempts:</span>
-                    <span class="status-value" id="dailyAttempts">100</span>
+                    <span class="status-value" id="dailyAttempts">5</span>
                 </div>
                 <div class="status-row">
                     <span class="status-label">Bonus Attempts:</span>
@@ -288,7 +288,7 @@
                 </div>
                 <div class="status-row">
                     <span class="status-label">Total Available Today:</span>
-                    <span class="status-value" id="totalAttempts">100</span>
+                    <span class="status-value" id="totalAttempts">5</span>
                 </div>
                 <div class="status-row">
                     <span class="status-label">Subscription:</span>
@@ -360,7 +360,7 @@
         const auth = getAuth(app);
 
         let currentUser = null;
-        const MAX_ATTEMPTS_PER_DAY = 100;
+        const MAX_ATTEMPTS_PER_DAY = 5;
 
         // DOM elements
         const messageArea = document.getElementById('messageArea');
