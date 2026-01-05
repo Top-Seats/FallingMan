@@ -1327,10 +1327,8 @@
             try {
                 await incrementAttempts();
                 
-                // Update display with new count
-                const newBonusAttempts = await getBonusAttempts(currentUser.uid);
-                const newTotalAvailable = MAX_ATTEMPTS_PER_DAY + newBonusAttempts;
-                attemptsDisplay.textContent = `${attemptsUsedToday}/${newTotalAvailable}`;
+                // Reload attempts display (will show ∞ for Pro users)
+                await loadAttemptsData();
             } catch (error) {
                 console.error('Failed to increment attempts:', error);
                 // If we hit max attempts, show the no attempts screen and stop any game loop
@@ -1459,7 +1457,7 @@
                 // Try to increment attempts BEFORE starting game
                 try {
                     await incrementAttempts();
-                    attemptsDisplay.textContent = `${attemptsUsedToday}/${MAX_ATTEMPTS_PER_DAY}`;
+                    await loadAttemptsData(); // Reload display (shows ∞ for Pro)
                     
                     // Only start game if increment succeeded
                     await updateCurrentRank();
@@ -1537,7 +1535,7 @@
             // Try to increment attempts in Firestore BEFORE starting game
             try {
                 await incrementAttempts();
-                attemptsDisplay.textContent = `${attemptsUsedToday}/${MAX_ATTEMPTS_PER_DAY}`;
+                await loadAttemptsData(); // Reload display (shows ∞ for Pro)
             } catch (error) {
                 console.error('Failed to increment attempts:', error);
                 // If we hit max attempts, show the no attempts screen and stop any game loop
