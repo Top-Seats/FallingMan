@@ -1353,7 +1353,7 @@
             levelDisplay.textContent = currentLevel;
             
             await updateCurrentRank();
-            gameLoop();
+            await gameLoop();
         }
 
         // Submit name and email (authenticate with Firebase)
@@ -1461,7 +1461,7 @@
                     
                     // Only start game if increment succeeded
                     await updateCurrentRank();
-                    gameLoop();
+                    await gameLoop();
                 } catch (error) {
                     console.error('Failed to increment attempts:', error);
                     // If increment failed, show no attempts screen and stop any game loop
@@ -1575,7 +1575,7 @@
             coinsDisplay.textContent = totalCoins;
             
             await updateCurrentRank();
-            gameLoop();
+            await gameLoop();
         }
 
         // Save score to Firestore and get global stats
@@ -1978,19 +1978,49 @@
             keysPressed = { left: false, right: false };
             
             // Restart the game loop
-            gameLoop();
+            await gameLoop();
         }
 
         // Main game loop
-        function gameLoop() {
+        async function gameLoop() {
             if (gameLoopInterval) {
                 clearInterval(gameLoopInterval);
             }
             
-            // Safety check - don't start if no user or out of attempts
-            if (!currentUser || attemptsUsedToday >= MAX_ATTEMPTS_PER_DAY) {
-                console.error('Cannot start game - no user or out of attempts');
+            // Safety check - don't start if no user
+            if (!currentUser) {
+                console.error('Cannot start game - no user');
                 return;
+            }
+            
+            // Check subscription status - Pro users have unlimited attempts
+            try {
+                const userRef = doc(db, 'users', currentUser.uid);
+                const userDoc = await getDoc(userRef);
+                
+                let isUnlimited = false;
+                if (userDoc.exists()) {
+                    const subscriptionStatus = userDoc.data().subscriptionStatus;
+                    if (subscriptionStatus === 'pro' || subscriptionStatus === 'active') {
+                        isUnlimited = true;
+                    }
+                }
+                
+                // Only check attempts limit for non-Pro users
+                if (!isUnlimited) {
+                    const totalAvailable = await getTotalAvailableAttempts();
+                    if (attemptsUsedToday >= totalAvailable) {
+                        console.error('Cannot start game - out of attempts');
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking subscription:', error);
+                // On error, check against total available
+                const totalAvailable = await getTotalAvailableAttempts();
+                if (attemptsUsedToday >= totalAvailable) {
+                    return;
+                }
             }
             
             // Show touch controls only on mobile devices
