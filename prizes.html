@@ -253,7 +253,7 @@
     <script type="module">
         // Import Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getFirestore, collection, query, orderBy, limit, getDocs, doc, getDoc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, limit, getDocs, doc, getDoc, setDoc, Timestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
         // Firebase configuration
@@ -309,6 +309,98 @@
             }
         }
 
+        // Get current week's winner (if payout has occurred)
+        async function getCurrentWeekWinner() {
+            try {
+                const winnerRef = doc(db, 'weeklyWinners', 'current');
+                const winnerDoc = await getDoc(winnerRef);
+                
+                if (winnerDoc.exists()) {
+                    return winnerDoc.data();
+                }
+                return null;
+            } catch (error) {
+                console.error('Error getting winner:', error);
+                return null;
+            }
+        }
+
+        // Process payout: record winner, clear scores, reset for next week
+        async function processPayout(winner) {
+            try {
+                console.log('Processing payout for:', winner);
+                
+                // Calculate next Friday
+                const nextFriday = getNextFridayMidnight();
+                
+                // Record winner for this week
+                const winnerRef = doc(db, 'weeklyWinners', 'current');
+                await setDoc(winnerRef, {
+                    uid: winner.uid,
+                    email: winner.email,
+                    name: winner.name,
+                    score: winner.score,
+                    wonAt: Timestamp.now(),
+                    nextPayoutAt: Timestamp.fromDate(nextFriday),
+                    processed: false
+                });
+                
+                // Archive winner to history
+                const historyRef = doc(db, 'weeklyWinners', `history_${Date.now()}`);
+                await setDoc(historyRef, {
+                    ...winner,
+                    wonAt: Timestamp.now()
+                });
+                
+                // Clear all scores for new week
+                const scoresSnapshot = await getDocs(collection(db, 'scores'));
+                const batch = [];
+                
+                scoresSnapshot.forEach((doc) => {
+                    batch.push(doc.ref);
+                });
+                
+                // Delete scores in batches (Firestore limit is 500 per batch)
+                for (let i = 0; i < batch.length; i += 500) {
+                    const batchToDelete = batch.slice(i, i + 500);
+                    const deleteBatch = writeBatch(db);
+                    batchToDelete.forEach(ref => deleteBatch.delete(ref));
+                    await deleteBatch.commit();
+                }
+                
+                console.log('Payout processed: winner recorded, scores cleared');
+                return true;
+            } catch (error) {
+                console.error('Error processing payout:', error);
+                return false;
+            }
+        }
+
+        // Check if we need to process payout
+        async function checkAndProcessPayout() {
+            const nextFriday = getNextFridayMidnight();
+            const now = Date.now();
+            
+            // Check if it's payout time (Friday at midnight EST)
+            if (now >= nextFriday.getTime()) {
+                console.log('Payout time reached!');
+                
+                // Check if we've already processed this week's payout
+                const currentWinner = await getCurrentWeekWinner();
+                const oneWeek = 7 * 24 * 60 * 60 * 1000;
+                
+                // Only process if no winner yet, or last payout was more than a week ago
+                if (!currentWinner || (now - currentWinner.wonAt.toMillis()) > oneWeek) {
+                    const leader = await getCurrentLeader();
+                    if (leader) {
+                        await processPayout(leader);
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         // Format time as HH:MM:SS or Days HH:MM:SS
         function formatTime(milliseconds) {
             const totalSeconds = Math.floor(milliseconds / 1000);
@@ -348,61 +440,79 @@
 
         // Update countdown display
         async function updateCountdown() {
-            const leader = await getCurrentLeader();
+            // Check if payout needs to be processed
+            await checkAndProcessPayout();
             
-            if (!leader) {
-                leaderInfo.textContent = 'No scores yet! Be the first to play!';
-                const nextFriday = getNextFridayMidnight();
-                const remaining = nextFriday.getTime() - Date.now();
-                countdownTimer.textContent = formatTime(remaining);
-                countdownStatus.textContent = 'Next payout: Friday at 12:00 AM EST';
-                return;
-            }
-
-            // Display leader info
-            leaderInfo.textContent = `Current Leader: ${leader.name} with ${leader.score.toLocaleString()} points`;
-
-            // Calculate time until next Friday midnight EST
+            // Get current week's winner (if payout already happened)
+            const weekWinner = await getCurrentWeekWinner();
             const nextFriday = getNextFridayMidnight();
             const remaining = nextFriday.getTime() - Date.now();
-
-            if (remaining <= 0) {
-                // Payout time reached
-                countdownTimer.textContent = '00:00:00';
-                countdownStatus.textContent = '🎉 Payout in progress!';
-                
-                if (currentUser && currentUser.uid === leader.uid) {
-                    // Show winner message to the current user
-                    winnerMessage.style.display = 'block';
-                    winnerText.textContent = `You won this week with ${leader.score.toLocaleString()} points!`;
-                } else {
-                    countdownStatus.textContent = `${leader.name} won this week!`;
-                }
-            } else {
-                // Timer still running
+            
+            // If there's a winner and we're before next Friday, show winner message
+            if (weekWinner && remaining > 0) {
+                leaderInfo.textContent = `Last Week's Winner: ${weekWinner.name} with ${weekWinner.score.toLocaleString()} points`;
                 countdownTimer.textContent = formatTime(remaining);
                 
                 const daysRemaining = Math.floor(remaining / (24 * 60 * 60 * 1000));
                 const hoursRemaining = Math.floor((remaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
                 
                 if (daysRemaining > 1) {
-                    countdownStatus.textContent = `${daysRemaining} days until payout`;
+                    countdownStatus.textContent = `New competition! Next payout in ${daysRemaining} days`;
                 } else if (daysRemaining === 1) {
-                    countdownStatus.textContent = `1 day and ${hoursRemaining} hours until payout`;
+                    countdownStatus.textContent = `Next payout in 1 day and ${hoursRemaining} hours`;
                 } else if (hoursRemaining > 1) {
-                    countdownStatus.textContent = `${hoursRemaining} hours until payout`;
+                    countdownStatus.textContent = `Next payout in ${hoursRemaining} hours`;
                 } else {
                     const minutesRemaining = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
-                    countdownStatus.textContent = `${minutesRemaining} minutes until payout!`;
+                    countdownStatus.textContent = `Next payout in ${minutesRemaining} minutes!`;
                 }
                 
-                // Check if current user is winning
-                if (currentUser && currentUser.uid === leader.uid) {
+                // Show winner message if it's the current user
+                if (currentUser && currentUser.uid === weekWinner.uid) {
                     winnerMessage.style.display = 'block';
-                    winnerText.textContent = `You have the highest score! Keep it until Friday at 12:00 AM EST to win $50!`;
+                    winnerText.textContent = `🎉 You won last week with ${weekWinner.score.toLocaleString()} points! Your $50 prize is being processed.`;
                 } else {
                     winnerMessage.style.display = 'none';
                 }
+                
+                return;
+            }
+            
+            // No winner yet, show current competition
+            const leader = await getCurrentLeader();
+            
+            if (!leader) {
+                leaderInfo.textContent = 'No scores yet! Be the first to play!';
+                countdownTimer.textContent = formatTime(remaining);
+                countdownStatus.textContent = 'Next payout: Friday at 12:00 AM EST';
+                winnerMessage.style.display = 'none';
+                return;
+            }
+
+            // Display current leader info
+            leaderInfo.textContent = `Current Leader: ${leader.name} with ${leader.score.toLocaleString()} points`;
+            countdownTimer.textContent = formatTime(remaining);
+            
+            const daysRemaining = Math.floor(remaining / (24 * 60 * 60 * 1000));
+            const hoursRemaining = Math.floor((remaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+            
+            if (daysRemaining > 1) {
+                countdownStatus.textContent = `${daysRemaining} days until payout`;
+            } else if (daysRemaining === 1) {
+                countdownStatus.textContent = `1 day and ${hoursRemaining} hours until payout`;
+            } else if (hoursRemaining > 1) {
+                countdownStatus.textContent = `${hoursRemaining} hours until payout`;
+            } else {
+                const minutesRemaining = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+                countdownStatus.textContent = `${minutesRemaining} minutes until payout!`;
+            }
+            
+            // Check if current user is winning
+            if (currentUser && currentUser.uid === leader.uid) {
+                winnerMessage.style.display = 'block';
+                winnerText.textContent = `You have the highest score! Keep it until Friday at 12:00 AM EST to win $50!`;
+            } else {
+                winnerMessage.style.display = 'none';
             }
         }
 
