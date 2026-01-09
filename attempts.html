@@ -301,7 +301,7 @@
                 </div>
                 <div class="status-row">
                     <span class="status-label">Your Coins:</span>
-                    <span class="status-value" id="userCoins" style="color: #fbbf24;">0 🪙</span>
+                    <span class="status-value" id="userCoins" style="color: #fbbf24;">0 Coins</span>
                 </div>
             </div>
 
@@ -309,7 +309,7 @@
             <div class="products-grid">
                 <!-- Coin Purchase Option -->
                 <div class="product-card coins">
-                    <div class="product-icon">🪙</div>
+                    <div class="product-icon">&#128176;</div>
                     <div class="product-name">5 Attempts</div>
                     <div class="product-description">Use your earned coins to get more attempts!</div>
                     <div class="product-price" style="color: #10b981;">100 <span style="font-size: 20px;">Coins</span></div>
@@ -318,7 +318,7 @@
 
                 <!-- 10 Attempts Pack -->
                 <div class="product-card">
-                    <div class="product-icon">ðŸŽ«</div>
+                    <div class="product-icon">&#127915;</div>
                     <div class="product-name">10 Attempts</div>
                     <div class="product-description">Get 10 extra attempts to use anytime</div>
                     <div class="product-price"><span class="currency">$</span>0.99</div>
@@ -328,7 +328,7 @@
                 <!-- 30 Attempts Pack -->
                 <div class="product-card">
                     <div class="best-value">BEST VALUE</div>
-                    <div class="product-icon">ðŸŽ«ðŸŽ«</div>
+                    <div class="product-icon">&#127915;&#127915;</div>
                     <div class="product-name">30 Attempts</div>
                     <div class="product-description">Get 30 extra attempts and save!</div>
                     <div class="product-price"><span class="currency">$</span>3.99</div>
@@ -337,7 +337,7 @@
 
                 <!-- SkyFall Pro -->
                 <div class="product-card featured">
-                    <div class="product-icon">â­</div>
+                    <div class="product-icon">&#11088;</div>
                     <div class="product-name">SkyFall Pro</div>
                     <div class="product-description">Unlimited attempts forever! Never worry about running out.</div>
                     <div class="product-price"><span class="currency">$</span>5.99<span style="font-size: 16px;">/month</span></div>
@@ -428,7 +428,7 @@
                     totalAttemptsEl.textContent = isPro ? 'Unlimited' : (MAX_ATTEMPTS_PER_DAY + bonusAttempts);
                     
                     if (isPro) {
-                        subscriptionStatusEl.innerHTML = '<span class="pro-badge">â­ PRO</span>';
+                        subscriptionStatusEl.innerHTML = '<span class="pro-badge">⭐ PRO</span>';
                     } else {
                         subscriptionStatusEl.textContent = 'Free';
                     }
@@ -448,7 +448,7 @@
         // Load user's coins
         async function loadUserCoins() {
             if (!currentUser) {
-                userCoinsEl.textContent = '0 🪙';
+                userCoinsEl.textContent = '0 Coins';
                 return;
             }
 
@@ -458,7 +458,7 @@
                 
                 if (userCoinsDoc.exists()) {
                     const coins = userCoinsDoc.data().totalCoins || 0;
-                    userCoinsEl.textContent = `${coins} 🪙`;
+                    userCoinsEl.textContent = `${coins} Coins`;
                     
                     // Enable/disable coin purchase button based on coins
                     if (buyCoinAttemptsBtn) {
@@ -472,7 +472,7 @@
                         }
                     }
                 } else {
-                    userCoinsEl.textContent = '0 🪙';
+                    userCoinsEl.textContent = '0 Coins';
                     if (buyCoinAttemptsBtn) {
                         buyCoinAttemptsBtn.disabled = true;
                         buyCoinAttemptsBtn.style.opacity = '0.5';
@@ -481,7 +481,7 @@
                 }
             } catch (error) {
                 console.error('Error loading user coins:', error);
-                userCoinsEl.textContent = '0 🪙';
+                userCoinsEl.textContent = '0 Coins';
             }
         }
 
