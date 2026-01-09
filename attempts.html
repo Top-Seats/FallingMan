@@ -152,6 +152,11 @@
             background: linear-gradient(to bottom, #fffbeb, white);
         }
 
+        .product-card.coins {
+            border: 3px solid #10b981;
+            background: linear-gradient(to bottom, #d1fae5, white);
+        }
+
         .product-icon {
             font-size: 48px;
             margin-bottom: 15px;
@@ -263,11 +268,11 @@
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">🎮 Sky Fall</div>
+            <div class="logo">Sky Fall</div>
             <div class="tagline">Get more attempts and play more!</div>
         </div>
 
-        <a href="index.html" class="back-button">⬅ Back to Game</a>
+        <a href="index.html" class="back-button">← Back to Game</a>
 
         <div class="content">
             <h1>🎫 Get More Attempts</h1>
@@ -294,13 +299,26 @@
                     <span class="status-label">Subscription:</span>
                     <span class="status-value" id="subscriptionStatus">Free</span>
                 </div>
+                <div class="status-row">
+                    <span class="status-label">Your Coins:</span>
+                    <span class="status-value" id="userCoins" style="color: #fbbf24;">0 🪙</span>
+                </div>
             </div>
 
             <!-- Products Grid -->
             <div class="products-grid">
+                <!-- Coin Purchase Option -->
+                <div class="product-card coins">
+                    <div class="product-icon">🪙</div>
+                    <div class="product-name">5 Attempts</div>
+                    <div class="product-description">Use your earned coins to get more attempts!</div>
+                    <div class="product-price" style="color: #10b981;">100 <span style="font-size: 20px;">Coins</span></div>
+                    <button class="buy-button coins" id="buyCoinAttempts" onclick="buyAttemptsWithCoins()">Buy with Coins</button>
+                </div>
+
                 <!-- 10 Attempts Pack -->
                 <div class="product-card">
-                    <div class="product-icon">🎫</div>
+                    <div class="product-icon">ðŸŽ«</div>
                     <div class="product-name">10 Attempts</div>
                     <div class="product-description">Get 10 extra attempts to use anytime</div>
                     <div class="product-price"><span class="currency">$</span>0.99</div>
@@ -310,7 +328,7 @@
                 <!-- 30 Attempts Pack -->
                 <div class="product-card">
                     <div class="best-value">BEST VALUE</div>
-                    <div class="product-icon">🎫🎫</div>
+                    <div class="product-icon">ðŸŽ«ðŸŽ«</div>
                     <div class="product-name">30 Attempts</div>
                     <div class="product-description">Get 30 extra attempts and save!</div>
                     <div class="product-price"><span class="currency">$</span>3.99</div>
@@ -319,7 +337,7 @@
 
                 <!-- SkyFall Pro -->
                 <div class="product-card featured">
-                    <div class="product-icon">⭐</div>
+                    <div class="product-icon">â­</div>
                     <div class="product-name">SkyFall Pro</div>
                     <div class="product-description">Unlimited attempts forever! Never worry about running out.</div>
                     <div class="product-price"><span class="currency">$</span>5.99<span style="font-size: 16px;">/month</span></div>
@@ -328,12 +346,12 @@
             </div>
 
             <div style="margin-top: 40px; padding: 20px; background: #f3f4f6; border-radius: 8px;">
-                <h3 style="font-size: 18px; margin-bottom: 10px; color: #1f2937;">💡 Pro Tip</h3>
-                <p style="color: #6b7280; line-height: 1.6;">Bonus attempts from referrals and purchases never expire! Share your code with friends to earn free attempts.</p>
+                <h3 style="font-size: 18px; margin-bottom: 10px; color: #1f2937;">ðŸ’¡ Pro Tip</h3>
+                <p style="color: #6b7280; line-height: 1.6;">Bonus attempts from referrals and purchases never expire! Earn coins by playing the game and use them to buy more attempts. Share your code with friends to earn free attempts.</p>
             </div>
 
             <div style="margin-top: 40px; text-align: center;">
-                <a href="index.html" class="back-button">Back to Game 🎮</a>
+                <a href="index.html" class="back-button">Back to Game</a>
             </div>
         </div>
     </div>
@@ -341,7 +359,7 @@
     <script type="module">
         // Import Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, runTransaction, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 
         // Firebase configuration
@@ -361,6 +379,8 @@
 
         let currentUser = null;
         const MAX_ATTEMPTS_PER_DAY = 5;
+        const COIN_COST_FOR_ATTEMPTS = 100;
+        const ATTEMPTS_FROM_COINS = 5;
 
         // DOM elements
         const messageArea = document.getElementById('messageArea');
@@ -368,6 +388,8 @@
         const bonusAttemptsEl = document.getElementById('bonusAttempts');
         const totalAttemptsEl = document.getElementById('totalAttempts');
         const subscriptionStatusEl = document.getElementById('subscriptionStatus');
+        const userCoinsEl = document.getElementById('userCoins');
+        const buyCoinAttemptsBtn = document.getElementById('buyCoinAttempts');
 
         // Show message
         function showMessage(text, type = 'info') {
@@ -401,12 +423,12 @@
                     // Check if Pro subscriber
                     const isPro = subscriptionStatus === 'pro' || subscriptionStatus === 'active';
                     
-                    dailyAttempts.textContent = isPro ? '∞' : MAX_ATTEMPTS_PER_DAY;
+                    dailyAttempts.textContent = isPro ? 'âˆž' : MAX_ATTEMPTS_PER_DAY;
                     bonusAttemptsEl.textContent = bonusAttempts;
                     totalAttemptsEl.textContent = isPro ? 'Unlimited' : (MAX_ATTEMPTS_PER_DAY + bonusAttempts);
                     
                     if (isPro) {
-                        subscriptionStatusEl.innerHTML = '<span class="pro-badge">⭐ PRO</span>';
+                        subscriptionStatusEl.innerHTML = '<span class="pro-badge">â­ PRO</span>';
                     } else {
                         subscriptionStatusEl.textContent = 'Free';
                     }
@@ -415,9 +437,129 @@
                     totalAttemptsEl.textContent = MAX_ATTEMPTS_PER_DAY;
                     subscriptionStatusEl.textContent = 'Free';
                 }
+                
+                // Load user coins
+                await loadUserCoins();
             } catch (error) {
                 console.error('Error loading user data:', error);
             }
+        }
+
+        // Load user's coins
+        async function loadUserCoins() {
+            if (!currentUser) {
+                userCoinsEl.textContent = '0 🪙';
+                return;
+            }
+
+            try {
+                const userCoinsRef = doc(db, 'userCoins', currentUser.uid);
+                const userCoinsDoc = await getDoc(userCoinsRef);
+                
+                if (userCoinsDoc.exists()) {
+                    const coins = userCoinsDoc.data().totalCoins || 0;
+                    userCoinsEl.textContent = `${coins} 🪙`;
+                    
+                    // Enable/disable coin purchase button based on coins
+                    if (buyCoinAttemptsBtn) {
+                        if (coins >= COIN_COST_FOR_ATTEMPTS) {
+                            buyCoinAttemptsBtn.disabled = false;
+                            buyCoinAttemptsBtn.style.opacity = '1';
+                        } else {
+                            buyCoinAttemptsBtn.disabled = true;
+                            buyCoinAttemptsBtn.style.opacity = '0.5';
+                            buyCoinAttemptsBtn.style.cursor = 'not-allowed';
+                        }
+                    }
+                } else {
+                    userCoinsEl.textContent = '0 🪙';
+                    if (buyCoinAttemptsBtn) {
+                        buyCoinAttemptsBtn.disabled = true;
+                        buyCoinAttemptsBtn.style.opacity = '0.5';
+                        buyCoinAttemptsBtn.style.cursor = 'not-allowed';
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user coins:', error);
+                userCoinsEl.textContent = '0 🪙';
+            }
+        }
+
+        // Buy attempts with coins
+        window.buyAttemptsWithCoins = async function() {
+            if (!currentUser) {
+                showMessage('Please log in to purchase attempts', 'info');
+                alert('Please log in or create an account to make a purchase.');
+                window.location.href = 'login.html';
+                return;
+            }
+
+            try {
+                buyCoinAttemptsBtn.disabled = true;
+                buyCoinAttemptsBtn.textContent = 'Processing...';
+                
+                // Use transaction to ensure atomic operation
+                await runTransaction(db, async (transaction) => {
+                    // Get current coins
+                    const userCoinsRef = doc(db, 'userCoins', currentUser.uid);
+                    const userCoinsDoc = await transaction.get(userCoinsRef);
+                    
+                    if (!userCoinsDoc.exists()) {
+                        throw new Error('No coins found. Play the game to earn coins!');
+                    }
+                    
+                    const currentCoins = userCoinsDoc.data().totalCoins || 0;
+                    
+                    // Check if user has enough coins
+                    if (currentCoins < COIN_COST_FOR_ATTEMPTS) {
+                        throw new Error(`Not enough coins! You need ${COIN_COST_FOR_ATTEMPTS} coins but only have ${currentCoins}.`);
+                    }
+                    
+                    // Get current bonus attempts
+                    const userRef = doc(db, 'users', currentUser.uid);
+                    const userDoc = await transaction.get(userRef);
+                    
+                    const currentBonus = userDoc.exists() ? (userDoc.data().bonusAttempts || 0) : 0;
+                    
+                    // Deduct coins
+                    transaction.update(userCoinsRef, {
+                        totalCoins: currentCoins - COIN_COST_FOR_ATTEMPTS,
+                        lastUpdated: Timestamp.now()
+                    });
+                    
+                    // Add bonus attempts
+                    if (userDoc.exists()) {
+                        transaction.update(userRef, {
+                            bonusAttempts: currentBonus + ATTEMPTS_FROM_COINS,
+                            lastCoinPurchase: Timestamp.now()
+                        });
+                    } else {
+                        transaction.set(userRef, {
+                            uid: currentUser.uid,
+                            bonusAttempts: ATTEMPTS_FROM_COINS,
+                            lastCoinPurchase: Timestamp.now()
+                        });
+                    }
+                });
+                
+                // Success!
+                showMessage(`Success! You purchased ${ATTEMPTS_FROM_COINS} bonus attempts for ${COIN_COST_FOR_ATTEMPTS} coins!`, 'success');
+                
+                // Reload user data
+                await loadUserData();
+                
+            } catch (error) {
+                console.error('Coin purchase error:', error);
+                showMessage(error.message || 'Purchase failed. Please try again.', 'info');
+            } finally {
+                buyCoinAttemptsBtn.disabled = false;
+                buyCoinAttemptsBtn.textContent = 'Buy with Coins';
+            }
+        }
+
+        // Attach event listener to coin purchase button
+        if (buyCoinAttemptsBtn) {
+            buyCoinAttemptsBtn.addEventListener('click', window.buyAttemptsWithCoins);
         }
 
         // Backend URL
