@@ -420,15 +420,15 @@
         
         <div class="controls">
             <div class="controls-title">Controls:</div>
-            <div>â† â†’ Arrow Keys to Move</div>
+            <div>&larr; &rarr; Arrow Keys to Move</div>
             <div class="controls-hint">Avoid obstacles and collect coins!</div>
         </div>
     </div>
 
     <!-- Mobile Touch Controls -->
     <div class="touch-controls">
-        <div id="leftButton" class="touch-button">â—€ LEFT</div>
-        <div id="rightButton" class="touch-button">RIGHT â–¶</div>
+        <div id="leftButton" class="touch-button">â&mdash;€ LEFT</div>
+        <div id="rightButton" class="touch-button">RIGHT â&ndash;¶</div>
     </div>
 
     <!-- Menu Button -->
@@ -1102,7 +1102,7 @@
                     cachedSubscriptionStatus = subscriptionStatus; // Cache it!
                     
                     if (subscriptionStatus === 'pro' || subscriptionStatus === 'active') {
-                        attemptsDisplay.textContent = `${attemptsUsedToday}/âˆž`;
+                        attemptsDisplay.textContent = `${attemptsUsedToday}/∞`;
                         return;
                     }
                 }

@@ -272,7 +272,7 @@
             <div class="tagline">Get more attempts and play more!</div>
         </div>
 
-        <a href="index.html" class="back-button">← Back to Game</a>
+        <a href="index.html" class="back-button">&larr; Back to Game</a>
 
         <div class="content">
             <h1>🎫 Get More Attempts</h1>
@@ -423,7 +423,7 @@
                     // Check if Pro subscriber
                     const isPro = subscriptionStatus === 'pro' || subscriptionStatus === 'active';
                     
-                    dailyAttempts.textContent = isPro ? 'âˆž' : MAX_ATTEMPTS_PER_DAY;
+                    dailyAttempts.textContent = isPro ? '∞' : MAX_ATTEMPTS_PER_DAY;
                     bonusAttemptsEl.textContent = bonusAttempts;
                     totalAttemptsEl.textContent = isPro ? 'Unlimited' : (MAX_ATTEMPTS_PER_DAY + bonusAttempts);
                     
