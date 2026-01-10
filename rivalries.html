@@ -226,6 +226,24 @@
             color: #6b7280;
         }
 
+        /* TopSeat highlighting */
+        .topseat-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-left: 10px;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+
+        .topseat-highlight {
+            background: linear-gradient(to right, #fef3c7, #fef3c7) !important;
+            border: 2px solid #fbbf24 !important;
+        }
+
         /* Buttons */
         .primary-button {
             width: 100%;
@@ -405,17 +423,37 @@
             <!-- State 3: Joined -->
             <div id="joinedState" class="state-container">
                 <div class="joined">
+                    <h2>Representing <span id="displayFrat"></span> at <span id="displaySchool"></span></h2>
+
+                    <!-- Individual Rank Section -->
                     <div class="rivalry-info">
-                        <div class="icon">&#9876;</div>
-                        <div class="affiliation">
-                            <span id="displayFrat"></span> at <span id="displaySchool"></span>
+                        <div style="font-size: 18px; font-weight: bold; color: #1f2937; margin-bottom: 15px;">
+                            &#128100; Your Individual Rank
                         </div>
-                        <div class="placeholder">Rivalry stats coming soon.</div>
+                        <div id="individualRankDisplay" style="font-size: 16px; color: #4b5563;">
+                            Loading...
+                        </div>
                     </div>
 
-                    <p style="text-align: center; color: #6b7280; margin-top: 20px;">
-                        You're representing <strong id="displayFrat2"></strong> at <strong id="displaySchool2"></strong>. Rivalry stats coming soon.
-                    </p>
+                    <!-- Frat Rank Section -->
+                    <div class="rivalry-info">
+                        <div style="font-size: 18px; font-weight: bold; color: #1f2937; margin-bottom: 15px;">
+                            &#9876; Your Frat's Rank
+                        </div>
+                        <div id="fratRankDisplay" style="font-size: 16px; color: #4b5563;">
+                            Loading...
+                        </div>
+                    </div>
+
+                    <!-- TopSeat Section -->
+                    <div class="rivalry-info" id="topSeatSection">
+                        <div style="font-size: 18px; font-weight: bold; color: #1f2937; margin-bottom: 15px;">
+                            &#127942; TopSeat
+                        </div>
+                        <div id="topSeatDisplay" style="font-size: 16px; color: #4b5563;">
+                            Loading...
+                        </div>
+                    </div>
 
                     <button class="secondary-button" onclick="leaveRivalries()" style="display: block; margin: 20px auto 0;">
                         Leave Rivalries
@@ -430,10 +468,141 @@
     </div>
 
     <script type="module">
+        // =============================================================================
+        // RIVALRY STATS AGGREGATION FUNCTIONS
+        // =============================================================================
+        
+        /**
+         * Get individual rank for a user within their school
+         */
+        function getIndividualRankForUser(userId, schoolId, allUsers) {
+            const schoolUsers = allUsers.filter(user => 
+                user.school === schoolId && 
+                user.score !== undefined && 
+                user.score !== null
+            );
+
+            if (schoolUsers.length === 0) {
+                return { rank: null, totalUsers: 0 };
+            }
+
+            const sortedUsers = schoolUsers.sort((a, b) => b.score - a.score);
+            const userIndex = sortedUsers.findIndex(user => user.uid === userId);
+
+            if (userIndex === -1) {
+                return { rank: null, totalUsers: schoolUsers.length };
+            }
+
+            return {
+                rank: userIndex + 1,
+                totalUsers: schoolUsers.length
+            };
+        }
+
+        /**
+         * Get fraternity rank for a user's frat within their school
+         */
+        function getFratRankForUser(userId, allUsers) {
+            const user = allUsers.find(u => u.uid === userId);
+
+            if (!user || !user.school || !user.frat) {
+                return { fratName: null, rank: null, totalFrats: 0, totalScore: 0, memberCount: 0 };
+            }
+
+            const schoolUsers = allUsers.filter(u => 
+                u.school === user.school && 
+                u.frat && 
+                u.score !== undefined && 
+                u.score !== null
+            );
+
+            if (schoolUsers.length === 0) {
+                return { fratName: user.frat, rank: null, totalFrats: 0, totalScore: 0, memberCount: 0 };
+            }
+
+            const fratScores = {};
+            
+            schoolUsers.forEach(u => {
+                if (!fratScores[u.frat]) {
+                    fratScores[u.frat] = {
+                        fratName: u.frat,
+                        totalScore: 0,
+                        memberCount: 0
+                    };
+                }
+                fratScores[u.frat].totalScore += u.score;
+                fratScores[u.frat].memberCount += 1;
+            });
+
+            const fratRankings = Object.values(fratScores).sort((a, b) => 
+                b.totalScore - a.totalScore
+            );
+
+            const fratRank = fratRankings.findIndex(f => f.fratName === user.frat);
+
+            if (fratRank === -1) {
+                return { 
+                    fratName: user.frat, 
+                    rank: null, 
+                    totalFrats: fratRankings.length, 
+                    totalScore: 0,
+                    memberCount: 0
+                };
+            }
+
+            return {
+                fratName: user.frat,
+                rank: fratRank + 1,
+                totalFrats: fratRankings.length,
+                totalScore: fratRankings[fratRank].totalScore,
+                memberCount: fratRankings[fratRank].memberCount
+            };
+        }
+
+        /**
+         * Get the top-ranked fraternity at a specific school (TopSeat)
+         */
+        function getTopSeatFratForSchool(schoolId, allUsers) {
+            const schoolUsers = allUsers.filter(u => 
+                u.school === schoolId && 
+                u.frat && 
+                u.score !== undefined && 
+                u.score !== null
+            );
+
+            if (schoolUsers.length === 0) {
+                return null;
+            }
+
+            const fratScores = {};
+            
+            schoolUsers.forEach(u => {
+                if (!fratScores[u.frat]) {
+                    fratScores[u.frat] = {
+                        fratName: u.frat,
+                        totalScore: 0,
+                        memberCount: 0
+                    };
+                }
+                fratScores[u.frat].totalScore += u.score;
+                fratScores[u.frat].memberCount += 1;
+            });
+
+            const fratRankings = Object.values(fratScores).sort((a, b) => 
+                b.totalScore - a.totalScore
+            );
+
+            return fratRankings.length > 0 ? fratRankings[0] : null;
+        }
+
+        // =============================================================================
+        // FIREBASE AND APP INITIALIZATION
+        // =============================================================================
+
         // Import Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, Timestamp, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
         // Firebase configuration
         const firebaseConfig = {
@@ -571,8 +740,174 @@
             }
         }
 
+        /**
+         * Load all users with rivalry data and their scores
+         */
+        async function loadAllRivalryUsers() {
+            try {
+                // Get all users with rivalry opt-in
+                const usersQuery = query(
+                    collection(db, 'users'),
+                    where('rivalryOptIn', '==', true)
+                );
+                const usersSnapshot = await getDocs(usersQuery);
+                
+                const users = [];
+                
+                // For each user, get their best score
+                for (const userDoc of usersSnapshot.docs) {
+                    const userData = userDoc.data();
+                    
+                    if (!userData.school || !userData.frat) continue;
+                    
+                    // Get user's best score from scores collection
+                    const scoresQuery = query(
+                        collection(db, 'scores'),
+                        where('uid', '==', userData.uid)
+                    );
+                    const scoresSnapshot = await getDocs(scoresQuery);
+                    
+                    let bestScore = 0;
+                    scoresSnapshot.forEach(scoreDoc => {
+                        const scoreData = scoreDoc.data();
+                        if (scoreData.score > bestScore) {
+                            bestScore = scoreData.score;
+                        }
+                    });
+                    
+                    users.push({
+                        uid: userData.uid,
+                        name: userData.name || userData.email?.split('@')[0] || 'Anonymous',
+                        school: userData.school,
+                        frat: userData.frat,
+                        score: bestScore
+                    });
+                }
+                
+                console.log('Loaded rivalry users:', users.length);
+                return users;
+            } catch (error) {
+                console.error('Error loading rivalry users:', error);
+                return [];
+            }
+        }
+
+        /**
+         * Display rivalry rankings for the current user
+         */
+        async function displayRivalryRankings(userId, school, frat) {
+            console.log('Loading rivalry rankings for:', userId, school, frat);
+            
+            // Show loading state
+            document.getElementById('individualRankDisplay').textContent = 'Loading...';
+            document.getElementById('fratRankDisplay').textContent = 'Loading...';
+            document.getElementById('topSeatDisplay').textContent = 'Loading...';
+            
+            // Load all rivalry users
+            const allUsers = await loadAllRivalryUsers();
+            
+            if (allUsers.length === 0) {
+                document.getElementById('individualRankDisplay').textContent = 'No rivalry data available yet.';
+                document.getElementById('fratRankDisplay').textContent = 'No rivalry data available yet.';
+                document.getElementById('topSeatDisplay').textContent = 'No rivalry data available yet.';
+                return;
+            }
+            
+            // 1. Individual Rank
+            const individualRank = getIndividualRankForUser(userId, school, allUsers);
+            const individualRankEl = document.getElementById('individualRankDisplay');
+            
+            if (individualRank.rank === null) {
+                individualRankEl.innerHTML = `
+                    <div style="color: #6b7280;">
+                        Play a round to enter the rankings at <strong>${school}</strong>.
+                    </div>
+                `;
+            } else {
+                individualRankEl.innerHTML = `
+                    <div style="font-size: 20px; font-weight: bold; color: #2563eb; margin-bottom: 5px;">
+                        #${individualRank.rank} of ${individualRank.totalUsers}
+                    </div>
+                    <div style="color: #6b7280;">
+                        Your rank at ${school}
+                    </div>
+                `;
+            }
+            
+            // 2. Frat Rank
+            const fratRank = getFratRankForUser(userId, allUsers);
+            const fratRankEl = document.getElementById('fratRankDisplay');
+            
+            if (fratRank.rank === null) {
+                fratRankEl.innerHTML = `
+                    <div style="color: #6b7280;">
+                        ${frat} has no scores yet at ${school}.
+                    </div>
+                `;
+            } else {
+                fratRankEl.innerHTML = `
+                    <div style="font-size: 20px; font-weight: bold; color: #2563eb; margin-bottom: 5px;">
+                        #${fratRank.rank} of ${fratRank.totalFrats}
+                    </div>
+                    <div style="color: #6b7280; margin-bottom: 8px;">
+                        ${frat} rank at ${school}
+                    </div>
+                    <div style="color: #4b5563;">
+                        Total frat score: <strong>${fratRank.totalScore.toLocaleString()}</strong>
+                    </div>
+                    <div style="color: #6b7280; font-size: 14px;">
+                        ${fratRank.memberCount} member${fratRank.memberCount !== 1 ? 's' : ''} competing
+                    </div>
+                `;
+            }
+            
+            // 3. TopSeat
+            const topSeat = getTopSeatFratForSchool(school, allUsers);
+            const topSeatEl = document.getElementById('topSeatDisplay');
+            const topSeatSection = document.getElementById('topSeatSection');
+            
+            if (topSeat === null) {
+                topSeatEl.innerHTML = `
+                    <div style="color: #6b7280;">
+                        No frats have scores yet at ${school}.
+                    </div>
+                `;
+                topSeatSection.classList.remove('topseat-highlight');
+            } else {
+                const isUserFratTopSeat = topSeat.fratName === frat;
+                
+                if (isUserFratTopSeat) {
+                    topSeatSection.classList.add('topseat-highlight');
+                    topSeatEl.innerHTML = `
+                        <div style="font-size: 20px; font-weight: bold; color: #2563eb; margin-bottom: 5px;">
+                            ${topSeat.fratName} <span class="topseat-badge">&#127942; TopSeat</span>
+                        </div>
+                        <div style="color: #4b5563; margin-bottom: 5px;">
+                            Score: <strong>${topSeat.totalScore.toLocaleString()}</strong>
+                        </div>
+                        <div style="color: #16a34a; font-weight: bold; font-size: 16px;">
+                            &#127881; Your frat holds the TopSeat at ${school}!
+                        </div>
+                    `;
+                } else {
+                    topSeatSection.classList.remove('topseat-highlight');
+                    topSeatEl.innerHTML = `
+                        <div style="font-size: 20px; font-weight: bold; color: #2563eb; margin-bottom: 5px;">
+                            ${topSeat.fratName}
+                        </div>
+                        <div style="color: #4b5563; margin-bottom: 5px;">
+                            Score: <strong>${topSeat.totalScore.toLocaleString()}</strong>
+                        </div>
+                        <div style="color: #6b7280; font-size: 14px;">
+                            Current TopSeat holder at ${school}
+                        </div>
+                    `;
+                }
+            }
+        }
+
         // Determine which state to show
-        function showAppropriateState() {
+        async function showAppropriateState() {
             // Hide all states first
             notLoggedInState.classList.remove('active');
             notJoinedState.classList.remove('active');
@@ -600,9 +935,10 @@
             console.log('State: Joined rivalries');
             document.getElementById('displaySchool').textContent = userData.school;
             document.getElementById('displayFrat').textContent = userData.frat;
-            document.getElementById('displaySchool2').textContent = userData.school;
-            document.getElementById('displayFrat2').textContent = userData.frat;
             joinedState.classList.add('active');
+            
+            // Load and display rivalry rankings
+            await displayRivalryRankings(currentUser.uid, userData.school, userData.frat);
         }
 
         // Go to login page

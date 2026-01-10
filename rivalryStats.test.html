@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rivalry Stats Test Page</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4ec9b0;
+            border-bottom: 2px solid #4ec9b0;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: #252526;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #007acc;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        pre {
+            background: #1e1e1e;
+            border: 1px solid #3c3c3c;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .success {
+            color: #4ec9b0;
+        }
+        .warning {
+            color: #dcdcaa;
+        }
+        .error {
+            color: #f48771;
+        }
+        #output {
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏆 Rivalry Stats Aggregation - Test Suite</h1>
+    
+    <div class="test-section">
+        <h2>📊 Test Controls</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button onclick="testIndividualRank()">Test Individual Rank</button>
+        <button onclick="testFratRank()">Test Frat Rank</button>
+        <button onclick="testTopSeatFrat()">Test TopSeat Frat</button>
+        <button onclick="showMockData()">Show Mock Data</button>
+        <button onclick="clearOutput()">Clear Output</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Test Output</h2>
+        <pre id="output">Click a button above to run tests...</pre>
+    </div>
+
+    <div class="test-section">
+        <h2>📚 Function Documentation</h2>
+        <pre>
+<span class="success">getIndividualRankForUser(userId, schoolId, allUsers)</span>
+  Returns: { rank: number | null, totalUsers: number }
+  Purpose: Get user's rank within their school
+
+<span class="success">getFratRankForUser(userId, allUsers)</span>
+  Returns: { fratName, rank, totalFrats, totalScore, memberCount }
+  Purpose: Get frat's rank within user's school
+
+<span class="success">getTopSeatFratForSchool(schoolId, allUsers)</span>
+  Returns: { fratName, totalScore, memberCount } | null
+  Purpose: Get the #1 frat at a specific school
+
+<span class="success">getAllFratRankingsForSchool(schoolId, allUsers)</span>
+  Returns: Array of { fratName, totalScore, memberCount, rank }
+  Purpose: Get all frat rankings for a school
+
+<span class="success">getTopIndividualsForSchool(schoolId, allUsers, limit)</span>
+  Returns: Array of { uid, name, frat, score, rank }
+  Purpose: Get top individual players at a school
+        </pre>
+    </div>
+
+    <!-- Load the rivalry stats module -->
+    <script src="rivalryStats.js"></script>
+    <script src="rivalryStats.test.js"></script>
+
+    <script>
+        const outputEl = document.getElementById('output');
+
+        // Override console.log to display in the page
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            
+            // Format output for display
+            const message = args.map(arg => {
+                if (typeof arg === 'object') {
+                    return JSON.stringify(arg, null, 2);
+                }
+                return String(arg);
+            }).join(' ');
+            
+            outputEl.textContent += message + '\n';
+        };
+
+        function clearOutput() {
+            outputEl.textContent = '';
+        }
+
+        function showMockData() {
+            clearOutput();
+            console.log('=== MOCK DATA ===\n');
+            console.log('Total users:', window.rivalryTests.MOCK_USERS.length);
+            console.log('\nUsers by school:');
+            
+            const bySchool = {};
+            window.rivalryTests.MOCK_USERS.forEach(user => {
+                if (!bySchool[user.school]) {
+                    bySchool[user.school] = [];
+                }
+                bySchool[user.school].push(user);
+            });
+            
+            Object.keys(bySchool).forEach(school => {
+                console.log(`\n${school}: ${bySchool[school].length} users`);
+                bySchool[school].forEach(user => {
+                    console.log(`  - ${user.name} (${user.frat}): ${user.score} pts`);
+                });
+            });
+        }
+
+        function runAllTests() {
+            clearOutput();
+            window.rivalryTests.runAllTests();
+        }
+
+        function testIndividualRank() {
+            clearOutput();
+            window.rivalryTests.testIndividualRank();
+        }
+
+        function testFratRank() {
+            clearOutput();
+            window.rivalryTests.testFratRank();
+        }
+
+        function testTopSeatFrat() {
+            clearOutput();
+            window.rivalryTests.testTopSeatFrat();
+        }
+
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            console.log('✅ Test suite loaded. Click buttons to run tests.\n');
+        });
+    </script>
+</body>
+</html>
