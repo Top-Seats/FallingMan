@@ -907,6 +907,14 @@
                     return;
                 }
 
+                // Check if SchoolsData is available
+                if (!window.SchoolsData || !window.SchoolsData.searchSchools) {
+                    console.error('SchoolsData not loaded! Make sure data/schools.js is included.');
+                    suggestionsContainer.innerHTML = '<div class="no-suggestions">School data not loaded. Please refresh the page.</div>';
+                    suggestionsContainer.classList.add('active');
+                    return;
+                }
+
                 // Debounce search (250ms delay)
                 searchTimeout = setTimeout(() => {
                     const results = window.SchoolsData.searchSchools(query, 10);
@@ -1010,13 +1018,23 @@
                 fratSelect.appendChild(option);
             });
 
-            // Initialize autocomplete for school input
-            initializeAutocomplete('school', 'schoolSuggestions', (school) => {
-                selectedSchool = school;
-                console.log('School selected:', school);
-            });
+            // Initialize autocomplete for school input after DOM is ready
+            setTimeout(() => {
+                const schoolInput = document.getElementById('school');
+                const schoolSuggestions = document.getElementById('schoolSuggestions');
+                
+                if (schoolInput && schoolSuggestions) {
+                    console.log('Initializing join form autocomplete');
+                    initializeAutocomplete('school', 'schoolSuggestions', (school) => {
+                        selectedSchool = school;
+                        console.log('School selected:', school);
+                    });
+                } else {
+                    console.error('School autocomplete elements not found');
+                }
+            }, 100);
 
-            console.log('Populated frat dropdown and initialized school autocomplete');
+            console.log('Populated frat dropdown');
         }
 
         // Load user data from Firestore
@@ -1256,27 +1274,36 @@
         window.enterEditMode = function() {
             isEditMode = true;
             
+            // Toggle visibility first
+            document.getElementById('viewMode').style.display = 'none';
+            document.getElementById('editMode').style.display = 'block';
+            
             // Populate edit dropdowns and autocomplete
             populateEditDropdowns();
             
-            // Pre-fill school autocomplete with current value
-            const editSchoolInput = document.getElementById('editSchool');
-            editSchoolInput.value = userData.school;
-            editSchoolInput.classList.add('has-selection');
-            
-            // Set selected school object (find by name)
-            selectedEditSchool = window.SchoolsData.getSchoolByName(userData.school);
-            if (!selectedEditSchool) {
-                // If not found in new list, create a placeholder
-                selectedEditSchool = { id: 'legacy', name: userData.school, city: '', state: '' };
-            }
-            
-            // Pre-fill frat dropdown
-            document.getElementById('editFrat').value = userData.frat;
-            
-            // Toggle visibility
-            document.getElementById('viewMode').style.display = 'none';
-            document.getElementById('editMode').style.display = 'block';
+            // Wait for autocomplete to initialize, then pre-fill
+            setTimeout(() => {
+                const editSchoolInput = document.getElementById('editSchool');
+                
+                // Pre-fill school autocomplete with current value
+                editSchoolInput.value = userData.school;
+                editSchoolInput.classList.add('has-selection');
+                
+                // Set selected school object (find by name)
+                if (window.SchoolsData && window.SchoolsData.getSchoolByName) {
+                    selectedEditSchool = window.SchoolsData.getSchoolByName(userData.school);
+                    if (!selectedEditSchool) {
+                        // If not found in new list, create a placeholder
+                        selectedEditSchool = { id: 'legacy', name: userData.school, city: '', state: '' };
+                    }
+                } else {
+                    // Fallback if SchoolsData not loaded
+                    selectedEditSchool = { id: 'legacy', name: userData.school, city: '', state: '' };
+                }
+                
+                // Pre-fill frat dropdown
+                document.getElementById('editFrat').value = userData.frat;
+            }, 200);
             
             // Clear any previous messages
             const editMessageArea = document.getElementById('editMessageArea');
@@ -1317,11 +1344,21 @@
                 editFratSelect.appendChild(option);
             });
 
-            // Initialize autocomplete for edit school input
-            initializeAutocomplete('editSchool', 'editSchoolSuggestions', (school) => {
-                selectedEditSchool = school;
-                console.log('Edit school selected:', school);
-            });
+            // Initialize autocomplete for edit school input after DOM is ready
+            setTimeout(() => {
+                const editSchoolInput = document.getElementById('editSchool');
+                const editSchoolSuggestions = document.getElementById('editSchoolSuggestions');
+                
+                if (editSchoolInput && editSchoolSuggestions) {
+                    console.log('Initializing edit form autocomplete');
+                    initializeAutocomplete('editSchool', 'editSchoolSuggestions', (school) => {
+                        selectedEditSchool = school;
+                        console.log('Edit school selected:', school);
+                    });
+                } else {
+                    console.error('Edit school autocomplete elements not found');
+                }
+            }, 100);
         }
 
         /**
