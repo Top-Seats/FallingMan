@@ -566,6 +566,123 @@
         
         console.log('Current theme:', currentTheme.name || 'Fallback', currentTheme);
 
+        /**
+         * Set the current theme ID and update the game visuals
+         * @param {string} themeId - The ID of the theme to switch to
+         * @param {boolean} persist - Whether to save to localStorage (default: true)
+         * @returns {boolean} True if theme was changed, false if invalid
+         */
+        function setCurrentThemeId(themeId, persist = true) {
+            // Validate theme exists
+            if (!window.GameThemes) {
+                console.error('Theme system not loaded');
+                return false;
+            }
+            
+            const availableThemes = window.GameThemes.getAvailableThemeIds();
+            if (!availableThemes.includes(themeId)) {
+                console.error(`Invalid theme ID: "${themeId}". Available themes:`, availableThemes);
+                return false;
+            }
+            
+            // Get the new theme
+            const newTheme = window.GameThemes.getTheme(themeId);
+            if (!newTheme) {
+                console.error(`Failed to load theme: ${themeId}`);
+                return false;
+            }
+            
+            // Update theme state
+            const oldThemeId = currentThemeId;
+            currentThemeId = themeId;
+            currentTheme = newTheme;
+            
+            // Persist to localStorage
+            if (persist) {
+                localStorage.setItem('gameTheme', themeId);
+            }
+            
+            console.log(`✅ Theme changed: ${oldThemeId} → ${themeId}`, currentTheme);
+            
+            // Reload visuals if game is running
+            reloadThemeInScene();
+            
+            return true;
+        }
+        
+        /**
+         * Reload the current theme's visuals without restarting the game
+         * This redraws the canvas with new theme colors
+         */
+        function reloadThemeInScene() {
+            if (!currentTheme) {
+                console.warn('No theme to reload');
+                return;
+            }
+            
+            console.log('🎨 Reloading theme visuals:', currentTheme.name);
+            
+            // Redraw the current frame with new theme
+            if (typeof render === 'function') {
+                render();
+            }
+            
+            // Update canvas CSS background to match theme (optional but nice)
+            const canvas = document.getElementById('gameCanvas');
+            if (canvas) {
+                canvas.style.background = currentTheme.colors.background;
+            }
+            
+            // Update body gradient if theme has UI colors
+            if (currentTheme.ui && currentTheme.ui.bodyGradientStart && currentTheme.ui.bodyGradientEnd) {
+                document.body.style.background = 
+                    `linear-gradient(to bottom, ${currentTheme.ui.bodyGradientStart}, ${currentTheme.ui.bodyGradientEnd})`;
+            }
+        }
+        
+        /**
+         * Get current theme information
+         * @returns {Object} Current theme object
+         */
+        function getCurrentTheme() {
+            return {
+                id: currentThemeId,
+                name: currentTheme.name || 'Unknown',
+                theme: currentTheme
+            };
+        }
+        
+        /**
+         * List all available themes
+         * @returns {Array} Array of theme info objects
+         */
+        function listAvailableThemes() {
+            if (!window.GameThemes) {
+                console.error('Theme system not loaded');
+                return [];
+            }
+            
+            return window.GameThemes.getAllThemes().map(theme => ({
+                id: theme.id,
+                name: theme.name,
+                isCurrent: theme.id === currentThemeId
+            }));
+        }
+        
+        // Expose theme functions globally for dev/console access
+        window.ThemeControls = {
+            setTheme: setCurrentThemeId,
+            getCurrentTheme: getCurrentTheme,
+            listThemes: listAvailableThemes,
+            reloadVisuals: reloadThemeInScene
+        };
+        
+        console.log('🎨 Theme Controls available:', {
+            currentTheme: currentThemeId,
+            availableThemes: window.GameThemes ? window.GameThemes.getAvailableThemeIds() : [],
+            usage: 'window.ThemeControls.setTheme("campusNight")'
+        });
+
         // Load saved progress from Firestore
         async function loadProgress() {
             if (!currentUser) {
@@ -2144,7 +2261,12 @@
         });
         
         loadHighScore();
+        
+        // Initial render with current theme
         render();
+        
+        // Apply theme to canvas CSS background
+        reloadThemeInScene();
     </script>
 </body>
 </html>
