@@ -474,6 +474,9 @@
         </div>
     </div>
     
+    <!-- Load Themes Configuration -->
+    <script src="themes.js"></script>
+    
     <script type="module">
         // Import Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
@@ -536,6 +539,32 @@
         let resetTime = localStorage.getItem('resetTime') || null;
         let countdownInterval = null;
         let isAuthenticating = false;
+
+        // ===== THEME SYSTEM =====
+        // Current theme ID - can be changed to switch themes
+        let currentThemeId = localStorage.getItem('gameTheme') || 'default';
+        
+        // Get the current theme object
+        let currentTheme = window.GameThemes ? window.GameThemes.getTheme(currentThemeId) : null;
+        
+        // Fallback if themes.js didn't load
+        if (!currentTheme) {
+            console.warn('Themes not loaded, using hardcoded fallback');
+            currentTheme = {
+                colors: {
+                    background: '#7dd3fc',
+                    grass: '#22c55e',
+                    grassDark: '#16a34a',
+                    obstacle: '#374151',
+                    obstacleBorder: '#1f2937',
+                    coin: '#fbbf24',
+                    coinBorder: '#d97706',
+                    player: { skin: '#FFD1A4', outline: '#000000' }
+                }
+            };
+        }
+        
+        console.log('Current theme:', currentTheme.name || 'Fallback', currentTheme);
 
         // Load saved progress from Firestore
         async function loadProgress() {
@@ -1718,9 +1747,9 @@
             // Head
             ctx.beginPath();
             ctx.arc(15, 6, 4, 0, Math.PI * 2);
-            ctx.fillStyle = '#FFD1A4';
+            ctx.fillStyle = currentTheme.colors.player.skin;
             ctx.fill();
-            ctx.strokeStyle = '#000';
+            ctx.strokeStyle = currentTheme.colors.player.outline;
             ctx.lineWidth = 1;
             ctx.stroke();
             
@@ -1728,7 +1757,7 @@
             ctx.beginPath();
             ctx.moveTo(15, 10);
             ctx.lineTo(15, 20);
-            ctx.strokeStyle = '#000';
+            ctx.strokeStyle = currentTheme.colors.player.outline;
             ctx.lineWidth = 2;
             ctx.stroke();
             
@@ -1753,11 +1782,11 @@
 
         // Draw obstacles
         function drawObstacles() {
-            ctx.fillStyle = '#374151';
+            ctx.fillStyle = currentTheme.colors.obstacle;
             obstacles.forEach(obs => {
                 const screenY = obs.y - cameraY;
                 ctx.fillRect(obs.x, screenY, OBSTACLE_WIDTH, OBSTACLE_HEIGHT);
-                ctx.strokeStyle = '#1f2937';
+                ctx.strokeStyle = currentTheme.colors.obstacleBorder;
                 ctx.lineWidth = 2;
                 ctx.strokeRect(obs.x, screenY, OBSTACLE_WIDTH, OBSTACLE_HEIGHT);
             });
@@ -1769,9 +1798,9 @@
                 const screenY = coin.y - cameraY;
                 ctx.beginPath();
                 ctx.arc(coin.x + COIN_SIZE / 2, screenY + COIN_SIZE / 2, COIN_SIZE / 2, 0, Math.PI * 2);
-                ctx.fillStyle = '#fbbf24';
+                ctx.fillStyle = currentTheme.colors.coin;
                 ctx.fill();
-                ctx.strokeStyle = '#d97706';
+                ctx.strokeStyle = currentTheme.colors.coinBorder;
                 ctx.lineWidth = 2;
                 ctx.stroke();
             });
@@ -1941,8 +1970,8 @@
 
         // Render game
         function render() {
-            // Clear canvas
-            ctx.fillStyle = '#7dd3fc';
+            // Clear canvas with theme background color
+            ctx.fillStyle = currentTheme.colors.background;
             ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
             
             // Calculate grass position in world space
@@ -1951,11 +1980,11 @@
             
             // Draw grass if it's visible on screen
             if (grassScreenY < GAME_HEIGHT && grassScreenY > -GRASS_HEIGHT) {
-                ctx.fillStyle = '#22c55e';
+                ctx.fillStyle = currentTheme.colors.grass;
                 ctx.fillRect(0, grassScreenY, GAME_WIDTH, GRASS_HEIGHT);
                 
                 // Draw darker grass line at top
-                ctx.fillStyle = '#16a34a';
+                ctx.fillStyle = currentTheme.colors.grassDark;
                 ctx.fillRect(0, grassScreenY, GAME_WIDTH, 3);
             }
             
