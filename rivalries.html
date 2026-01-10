@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rivalries - Sky Fall</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(to bottom, #60a5fa, #2563eb);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 48px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .tagline {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .back-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #22c55e;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 18px;
+            transition: all 0.2s;
+            margin-bottom: 30px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .back-button:hover {
+            background: #16a34a;
+            transform: scale(1.05);
+        }
+
+        .content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            color: #1f2937;
+        }
+
+        h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #2563eb;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+
+        /* State containers */
+        .state-container {
+            display: none;
+        }
+
+        .state-container.active {
+            display: block;
+        }
+
+        /* Not logged in state */
+        .not-logged-in {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .not-logged-in h2 {
+            font-size: 28px;
+            color: #1f2937;
+            margin-bottom: 20px;
+        }
+
+        .not-logged-in p {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 30px;
+        }
+
+        /* Not joined state */
+        .not-joined {
+            padding: 40px 20px;
+        }
+
+        .not-joined h2 {
+            font-size: 28px;
+            color: #1f2937;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .not-joined p {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        /* Join form */
+        .join-form {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #1f2937;
+            font-size: 16px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+            background: white;
+            cursor: pointer;
+        }
+
+        .form-group select:focus {
+            outline: none;
+            border-color: #2563eb;
+        }
+
+        .form-hint {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 6px;
+        }
+
+        /* Joined state */
+        .joined {
+            padding: 40px 20px;
+        }
+
+        .joined h2 {
+            font-size: 28px;
+            color: #1f2937;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .rivalry-info {
+            background: #f3f4f6;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .rivalry-info .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .rivalry-info .affiliation {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 10px;
+        }
+
+        .rivalry-info .placeholder {
+            font-size: 18px;
+            color: #6b7280;
+        }
+
+        /* Buttons */
+        .primary-button {
+            width: 100%;
+            padding: 14px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .primary-button:hover:not(:disabled) {
+            background: #1e40af;
+            transform: scale(1.02);
+        }
+
+        .primary-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .secondary-button {
+            padding: 12px 24px;
+            background: #6b7280;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+
+        .secondary-button:hover {
+            background: #4b5563;
+        }
+
+        /* Messages */
+        .message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 2px solid #86efac;
+            display: block;
+        }
+
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 2px solid #fca5a5;
+            display: block;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            display: none;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-overlay .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #e5e7eb;
+            border-top-color: #2563eb;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .logo {
+                font-size: 36px;
+            }
+
+            h1 {
+                font-size: 28px;
+            }
+
+            .content {
+                padding: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <div class="logo">&#127918; Sky Fall</div>
+            <div class="tagline">Challenge your school and frat to rivalry battles!</div>
+        </div>
+
+        <a href="index.html" class="back-button">&larr; Back to Game</a>
+
+        <div class="content">
+            <h1>
+                <span>&#9876;</span>
+                Rivalries
+            </h1>
+            <p class="subtitle">Compete with other schools and fraternities!</p>
+
+            <!-- State 1: Not Logged In -->
+            <div id="notLoggedInState" class="state-container">
+                <div class="not-logged-in">
+                    <h2>Log in to participate in rivalries</h2>
+                    <p>Join the competition and represent your school and fraternity!</p>
+                    <button class="primary-button" onclick="goToLogin()">Log In</button>
+                </div>
+            </div>
+
+            <!-- State 2: Not Joined -->
+            <div id="notJoinedState" class="state-container">
+                <div class="not-joined">
+                    <h2>Join rivalries to represent your school and frat</h2>
+                    <p>Select your school and fraternity to start competing in rivalries!</p>
+
+                    <div id="messageArea" class="message"></div>
+
+                    <form id="joinForm" class="join-form">
+                        <div class="form-group">
+                            <label for="school">School / University</label>
+                            <select 
+                                id="school" 
+                                name="school" 
+                                required
+                            >
+                                <option value="">-- Select your school --</option>
+                            </select>
+                            <div class="form-hint">Select your school or university</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="frat">Fraternity / Sorority</label>
+                            <select 
+                                id="frat" 
+                                name="frat" 
+                                required
+                            >
+                                <option value="">-- Select your fraternity/sorority --</option>
+                            </select>
+                            <div class="form-hint">Select your fraternity or sorority</div>
+                        </div>
+
+                        <button type="submit" class="primary-button" id="joinButton">Join Rivalries</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- State 3: Joined -->
+            <div id="joinedState" class="state-container">
+                <div class="joined">
+                    <div class="rivalry-info">
+                        <div class="icon">&#9876;</div>
+                        <div class="affiliation">
+                            <span id="displayFrat"></span> at <span id="displaySchool"></span>
+                        </div>
+                        <div class="placeholder">Rivalry stats coming soon.</div>
+                    </div>
+
+                    <p style="text-align: center; color: #6b7280; margin-top: 20px;">
+                        You're representing <strong id="displayFrat2"></strong> at <strong id="displaySchool2"></strong>. Rivalry stats coming soon.
+                    </p>
+
+                    <button class="secondary-button" onclick="leaveRivalries()" style="display: block; margin: 20px auto 0;">
+                        Leave Rivalries
+                    </button>
+                </div>
+            </div>
+
+            <div style="margin-top: 40px; text-align: center;">
+                <a href="index.html" class="back-button">Back to Game &#127918;</a>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBic7ZeUQDgPZqORn0t6-wUCGHfEPASE10",
+            authDomain: "topseat-d1d5d.firebaseapp.com",
+            projectId: "topseat-d1d5d",
+            storageBucket: "topseat-d1d5d.firebasestorage.app",
+            messagingSenderId: "770306321288",
+            appId: "1:770306321288:web:0e768acffc4d189672283d"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // =============================================================================
+        // HARDCODED RIVALRY OPTIONS
+        // Edit these arrays to add more schools and fraternities/sororities
+        // =============================================================================
+        
+        const SCHOOLS = [
+            "University of Michigan",
+            "Michigan State University",
+            "Ohio State University",
+            "Penn State University",
+            "University of Wisconsin",
+            "Indiana University",
+            "Purdue University",
+            "University of Illinois",
+            "Northwestern University",
+            "University of Iowa",
+            "University of Minnesota",
+            "University of Nebraska",
+            "Rutgers University",
+            "University of Maryland"
+        ];
+
+        const FRATS = [
+            "Alpha",
+            "Beta",
+            "Gamma",
+            "Delta",
+            "Sigma Chi",
+            "Phi Delta Theta",
+            "Kappa Sigma",
+            "Lambda Chi Alpha",
+            "Pi Kappa Alpha",
+            "Sigma Alpha Epsilon",
+            "Tau Kappa Epsilon",
+            "Sigma Nu",
+            "Phi Kappa Psi",
+            "Delta Tau Delta",
+            "Theta Chi",
+            "Kappa Alpha",
+            "Alpha Tau Omega",
+            "Phi Gamma Delta",
+            "Beta Theta Pi",
+            "Sigma Phi Epsilon"
+        ];
+
+        // =============================================================================
+
+        let currentUser = null;
+        let userData = null;
+
+        // DOM elements
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const notLoggedInState = document.getElementById('notLoggedInState');
+        const notJoinedState = document.getElementById('notJoinedState');
+        const joinedState = document.getElementById('joinedState');
+        const messageArea = document.getElementById('messageArea');
+        const joinForm = document.getElementById('joinForm');
+        const joinButton = document.getElementById('joinButton');
+
+        // Show/hide loading
+        function showLoading() {
+            loadingOverlay.classList.add('active');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.remove('active');
+        }
+
+        // Show message
+        function showMessage(text, type) {
+            messageArea.textContent = text;
+            messageArea.className = `message ${type}`;
+            setTimeout(() => {
+                messageArea.className = 'message';
+            }, 5000);
+        }
+
+        // Populate school and frat dropdowns
+        function populateDropdowns() {
+            const schoolSelect = document.getElementById('school');
+            const fratSelect = document.getElementById('frat');
+
+            // Clear existing options (except the placeholder)
+            schoolSelect.innerHTML = '<option value="">-- Select your school --</option>';
+            fratSelect.innerHTML = '<option value="">-- Select your fraternity/sorority --</option>';
+
+            // Add school options
+            SCHOOLS.forEach(school => {
+                const option = document.createElement('option');
+                option.value = school;
+                option.textContent = school;
+                schoolSelect.appendChild(option);
+            });
+
+            // Add frat options
+            FRATS.forEach(frat => {
+                const option = document.createElement('option');
+                option.value = frat;
+                option.textContent = frat;
+                fratSelect.appendChild(option);
+            });
+
+            console.log('Populated dropdowns:', { schools: SCHOOLS.length, frats: FRATS.length });
+        }
+
+        // Load user data from Firestore
+        async function loadUserData(uid) {
+            try {
+                const userRef = doc(db, 'users', uid);
+                const userDoc = await getDoc(userRef);
+
+                if (userDoc.exists()) {
+                    return userDoc.data();
+                }
+                return null;
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                return null;
+            }
+        }
+
+        // Determine which state to show
+        function showAppropriateState() {
+            // Hide all states first
+            notLoggedInState.classList.remove('active');
+            notJoinedState.classList.remove('active');
+            joinedState.classList.remove('active');
+
+            // State 1: Not logged in
+            if (!currentUser) {
+                console.log('State: Not logged in');
+                notLoggedInState.classList.add('active');
+                return;
+            }
+
+            // State 2: Not joined (missing data or opt-in false)
+            if (!userData || 
+                !userData.rivalryOptIn || 
+                !userData.school || 
+                !userData.frat) {
+                console.log('State: Not joined rivalries');
+                populateDropdowns(); // Populate dropdowns when showing join form
+                notJoinedState.classList.add('active');
+                return;
+            }
+
+            // State 3: Joined
+            console.log('State: Joined rivalries');
+            document.getElementById('displaySchool').textContent = userData.school;
+            document.getElementById('displayFrat').textContent = userData.frat;
+            document.getElementById('displaySchool2').textContent = userData.school;
+            document.getElementById('displayFrat2').textContent = userData.frat;
+            joinedState.classList.add('active');
+        }
+
+        // Go to login page
+        window.goToLogin = function() {
+            window.location.href = 'login.html';
+        };
+
+        // Join rivalries - called when user submits the join form
+        joinForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!currentUser) {
+                showMessage('Please log in first', 'error');
+                return;
+            }
+
+            const school = document.getElementById('school').value;
+            const frat = document.getElementById('frat').value;
+
+            // Validate both fields are selected
+            if (!school || school === '') {
+                showMessage('Please select a school', 'error');
+                return;
+            }
+
+            if (!frat || frat === '') {
+                showMessage('Please select a fraternity/sorority', 'error');
+                return;
+            }
+
+            joinButton.disabled = true;
+            joinButton.textContent = 'Joining...';
+            showLoading();
+
+            try {
+                // Call the persistence function
+                await persistRivalryJoin(currentUser.uid, school, frat);
+
+                console.log('Successfully joined rivalries:', { school, frat });
+
+                // Reload user data to get updated state
+                userData = await loadUserData(currentUser.uid);
+
+                // Show joined state
+                showAppropriateState();
+                showMessage('Successfully joined rivalries!', 'success');
+
+            } catch (error) {
+                console.error('Error joining rivalries:', error);
+                showMessage('Failed to join rivalries. Please try again.', 'error');
+                joinButton.disabled = false;
+                joinButton.textContent = 'Join Rivalries';
+            } finally {
+                hideLoading();
+                joinButton.disabled = false;
+                joinButton.textContent = 'Join Rivalries';
+            }
+        });
+
+        // =============================================================================
+        // PERSISTENCE FUNCTION - Saves school, frat, and rivalryOptIn to Firestore
+        // =============================================================================
+        
+        /**
+         * Persist rivalry join data for a user
+         * @param {string} uid - User ID
+         * @param {string} school - Selected school
+         * @param {string} frat - Selected fraternity/sorority
+         */
+        async function persistRivalryJoin(uid, school, frat) {
+            const userRef = doc(db, 'users', uid);
+            
+            // Update user document with rivalry data
+            // Using merge: true to preserve existing user fields
+            await setDoc(userRef, {
+                school: school,
+                frat: frat,
+                rivalryOptIn: true,
+                rivalryJoinedAt: Timestamp.now()
+            }, { merge: true });
+
+            console.log('[persistRivalryJoin] Saved to Firestore:', { uid, school, frat, rivalryOptIn: true });
+        }
+
+        // =============================================================================
+
+        // Leave rivalries
+        window.leaveRivalries = async function() {
+            if (!currentUser) return;
+
+            if (!confirm('Are you sure you want to leave rivalries? You can rejoin anytime.')) {
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const userRef = doc(db, 'users', currentUser.uid);
+                
+                // Set rivalryOptIn to false
+                await setDoc(userRef, {
+                    rivalryOptIn: false,
+                    rivalryLeftAt: Timestamp.now()
+                }, { merge: true });
+
+                console.log('Left rivalries');
+
+                // Reload user data
+                userData = await loadUserData(currentUser.uid);
+
+                // Show not joined state
+                showAppropriateState();
+                showMessage('You have left rivalries', 'success');
+
+            } catch (error) {
+                console.error('Error leaving rivalries:', error);
+                alert('Failed to leave rivalries. Please try again.');
+            } finally {
+                hideLoading();
+            }
+        };
+
+        // Initialize on auth state change
+        onAuthStateChanged(auth, async (user) => {
+            showLoading();
+
+            if (user) {
+                currentUser = user;
+                console.log('User authenticated:', user.email);
+                
+                // Load user data
+                userData = await loadUserData(user.uid);
+                console.log('User data:', userData);
+            } else {
+                console.log('No user authenticated');
+                currentUser = null;
+                userData = null;
+            }
+
+            showAppropriateState();
+            hideLoading();
+        });
+    </script>
+</body>
+</html>
