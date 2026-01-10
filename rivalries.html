@@ -500,14 +500,19 @@
 
                         <div class="form-group">
                             <label for="frat">Fraternity / Sorority</label>
-                            <select 
-                                id="frat" 
-                                name="frat" 
-                                required
-                            >
-                                <option value="">-- Select your fraternity/sorority --</option>
-                            </select>
-                            <div class="form-hint">Select your fraternity or sorority</div>
+                            <div class="autocomplete-container">
+                                <input 
+                                    type="text"
+                                    id="frat" 
+                                    name="frat"
+                                    class="autocomplete-input"
+                                    placeholder="Start typing your organization name..."
+                                    autocomplete="off"
+                                    required
+                                >
+                                <div id="fratSuggestions" class="autocomplete-suggestions"></div>
+                            </div>
+                            <div class="form-hint">Type to search for your fraternity or sorority</div>
                         </div>
 
                         <button type="submit" class="primary-button" id="joinButton">Join Rivalries</button>
@@ -594,14 +599,19 @@
 
                             <div class="form-group">
                                 <label for="editFrat">Fraternity / Sorority</label>
-                                <select 
-                                    id="editFrat" 
-                                    name="editFrat" 
-                                    required
-                                >
-                                    <option value="">-- Select your fraternity/sorority --</option>
-                                </select>
-                                <div class="form-hint">Select your fraternity or sorority</div>
+                                <div class="autocomplete-container">
+                                    <input 
+                                        type="text"
+                                        id="editFrat" 
+                                        name="editFrat"
+                                        class="autocomplete-input"
+                                        placeholder="Start typing your organization name..."
+                                        autocomplete="off"
+                                        required
+                                    >
+                                    <div id="editFratSuggestions" class="autocomplete-suggestions"></div>
+                                </div>
+                                <div class="form-hint">Type to search for your fraternity or sorority</div>
                             </div>
 
                             <div style="display: flex; gap: 10px;">
@@ -789,7 +799,155 @@
         console.log('Schools data loaded:', window.SchoolsData.SCHOOLS_COUNT, 'schools');
 
         // =============================================================================
-        // END SCHOOLS DATA
+        // FRATERNITIES & SORORITIES DATA
+        // =============================================================================
+        
+        const FRATS_DATA = [
+            // National Fraternities (IFC)
+            { id: "alpha-chi-rho", name: "Alpha Chi Rho", type: "fraternity" },
+            { id: "alpha-epsilon-pi", name: "Alpha Epsilon Pi", type: "fraternity" },
+            { id: "alpha-gamma-rho", name: "Alpha Gamma Rho", type: "fraternity" },
+            { id: "alpha-phi-alpha", name: "Alpha Phi Alpha", type: "fraternity" },
+            { id: "alpha-sigma-phi", name: "Alpha Sigma Phi", type: "fraternity" },
+            { id: "alpha-tau-omega", name: "Alpha Tau Omega", type: "fraternity" },
+            { id: "beta-theta-pi", name: "Beta Theta Pi", type: "fraternity" },
+            { id: "chi-phi", name: "Chi Phi", type: "fraternity" },
+            { id: "chi-psi", name: "Chi Psi", type: "fraternity" },
+            { id: "delta-chi", name: "Delta Chi", type: "fraternity" },
+            { id: "delta-kappa-epsilon", name: "Delta Kappa Epsilon", type: "fraternity" },
+            { id: "delta-sigma-phi", name: "Delta Sigma Phi", type: "fraternity" },
+            { id: "delta-tau-delta", name: "Delta Tau Delta", type: "fraternity" },
+            { id: "delta-upsilon", name: "Delta Upsilon", type: "fraternity" },
+            { id: "farmhouse", name: "FarmHouse", type: "fraternity" },
+            { id: "kappa-alpha", name: "Kappa Alpha Order", type: "fraternity" },
+            { id: "kappa-alpha-psi", name: "Kappa Alpha Psi", type: "fraternity" },
+            { id: "kappa-sigma", name: "Kappa Sigma", type: "fraternity" },
+            { id: "lambda-chi-alpha", name: "Lambda Chi Alpha", type: "fraternity" },
+            { id: "omega-psi-phi", name: "Omega Psi Phi", type: "fraternity" },
+            { id: "phi-delta-theta", name: "Phi Delta Theta", type: "fraternity" },
+            { id: "phi-gamma-delta", name: "Phi Gamma Delta (FIJI)", type: "fraternity" },
+            { id: "phi-kappa-psi", name: "Phi Kappa Psi", type: "fraternity" },
+            { id: "phi-kappa-sigma", name: "Phi Kappa Sigma", type: "fraternity" },
+            { id: "phi-kappa-tau", name: "Phi Kappa Tau", type: "fraternity" },
+            { id: "phi-sigma-kappa", name: "Phi Sigma Kappa", type: "fraternity" },
+            { id: "phi-beta-sigma", name: "Phi Beta Sigma", type: "fraternity" },
+            { id: "pi-kappa-alpha", name: "Pi Kappa Alpha", type: "fraternity" },
+            { id: "pi-kappa-phi", name: "Pi Kappa Phi", type: "fraternity" },
+            { id: "pi-lambda-phi", name: "Pi Lambda Phi", type: "fraternity" },
+            { id: "psi-upsilon", name: "Psi Upsilon", type: "fraternity" },
+            { id: "sigma-alpha-epsilon", name: "Sigma Alpha Epsilon", type: "fraternity" },
+            { id: "sigma-chi", name: "Sigma Chi", type: "fraternity" },
+            { id: "sigma-nu", name: "Sigma Nu", type: "fraternity" },
+            { id: "sigma-phi-epsilon", name: "Sigma Phi Epsilon", type: "fraternity" },
+            { id: "sigma-pi", name: "Sigma Pi", type: "fraternity" },
+            { id: "sigma-tau-gamma", name: "Sigma Tau Gamma", type: "fraternity" },
+            { id: "tau-kappa-epsilon", name: "Tau Kappa Epsilon", type: "fraternity" },
+            { id: "theta-chi", name: "Theta Chi", type: "fraternity" },
+            { id: "theta-delta-chi", name: "Theta Delta Chi", type: "fraternity" },
+            { id: "theta-xi", name: "Theta Xi", type: "fraternity" },
+            { id: "triangle", name: "Triangle", type: "fraternity" },
+            { id: "zeta-beta-tau", name: "Zeta Beta Tau", type: "fraternity" },
+            { id: "zeta-psi", name: "Zeta Psi", type: "fraternity" },
+
+            // National Sororities (Panhellenic)
+            { id: "alpha-chi-omega", name: "Alpha Chi Omega", type: "sorority" },
+            { id: "alpha-delta-pi", name: "Alpha Delta Pi", type: "sorority" },
+            { id: "alpha-epsilon-phi", name: "Alpha Epsilon Phi", type: "sorority" },
+            { id: "alpha-gamma-delta", name: "Alpha Gamma Delta", type: "sorority" },
+            { id: "alpha-kappa-alpha", name: "Alpha Kappa Alpha", type: "sorority" },
+            { id: "alpha-omicron-pi", name: "Alpha Omicron Pi", type: "sorority" },
+            { id: "alpha-phi", name: "Alpha Phi", type: "sorority" },
+            { id: "alpha-sigma-alpha", name: "Alpha Sigma Alpha", type: "sorority" },
+            { id: "alpha-sigma-tau", name: "Alpha Sigma Tau", type: "sorority" },
+            { id: "alpha-xi-delta", name: "Alpha Xi Delta", type: "sorority" },
+            { id: "chi-omega", name: "Chi Omega", type: "sorority" },
+            { id: "delta-delta-delta", name: "Delta Delta Delta (Tri Delta)", type: "sorority" },
+            { id: "delta-gamma", name: "Delta Gamma", type: "sorority" },
+            { id: "delta-phi-epsilon", name: "Delta Phi Epsilon", type: "sorority" },
+            { id: "delta-sigma-theta", name: "Delta Sigma Theta", type: "sorority" },
+            { id: "delta-zeta", name: "Delta Zeta", type: "sorority" },
+            { id: "gamma-phi-beta", name: "Gamma Phi Beta", type: "sorority" },
+            { id: "kappa-alpha-theta", name: "Kappa Alpha Theta", type: "sorority" },
+            { id: "kappa-delta", name: "Kappa Delta", type: "sorority" },
+            { id: "kappa-kappa-gamma", name: "Kappa Kappa Gamma", type: "sorority" },
+            { id: "phi-mu", name: "Phi Mu", type: "sorority" },
+            { id: "phi-sigma-sigma", name: "Phi Sigma Sigma", type: "sorority" },
+            { id: "pi-beta-phi", name: "Pi Beta Phi", type: "sorority" },
+            { id: "sigma-delta-tau", name: "Sigma Delta Tau", type: "sorority" },
+            { id: "sigma-gamma-rho", name: "Sigma Gamma Rho", type: "sorority" },
+            { id: "sigma-kappa", name: "Sigma Kappa", type: "sorority" },
+            { id: "sigma-sigma-sigma", name: "Sigma Sigma Sigma (Tri Sigma)", type: "sorority" },
+            { id: "theta-phi-alpha", name: "Theta Phi Alpha", type: "sorority" },
+            { id: "zeta-phi-beta", name: "Zeta Phi Beta", type: "sorority" },
+            { id: "zeta-tau-alpha", name: "Zeta Tau Alpha", type: "sorority" },
+
+            // Cultural & Multicultural
+            { id: "lambda-theta-alpha", name: "Lambda Theta Alpha (Latina)", type: "sorority" },
+            { id: "lambda-theta-nu", name: "Lambda Theta Nu (Latina)", type: "sorority" },
+            { id: "sigma-lambda-beta", name: "Sigma Lambda Beta (Latino)", type: "fraternity" },
+            { id: "lambda-theta-phi", name: "Lambda Theta Phi (Latino)", type: "fraternity" },
+            { id: "lambda-upsilon-lambda", name: "Lambda Upsilon Lambda (Latino)", type: "fraternity" },
+            { id: "sigma-lambda-gamma", name: "Sigma Lambda Gamma (Multicultural)", type: "sorority" },
+            { id: "alpha-kappa-delta-phi", name: "alpha Kappa Delta Phi (Asian)", type: "sorority" },
+            { id: "sigma-psi-zeta", name: "Sigma Psi Zeta (Asian)", type: "sorority" },
+            { id: "lambda-phi-epsilon", name: "Lambda Phi Epsilon (Asian)", type: "fraternity" },
+            { id: "alpha-epsilon-omega", name: "Alpha Epsilon Omega (Christian)", type: "fraternity" },
+            { id: "beta-upsilon-chi", name: "Beta Upsilon Chi (Christian)", type: "fraternity" },
+
+            // Professional & Service
+            { id: "alpha-phi-omega", name: "Alpha Phi Omega (Service)", type: "coed" },
+            { id: "phi-sigma-pi", name: "Phi Sigma Pi (Honor)", type: "coed" },
+            { id: "alpha-kappa-psi", name: "Alpha Kappa Psi (Business)", type: "coed" },
+            { id: "delta-sigma-pi", name: "Delta Sigma Pi (Business)", type: "coed" },
+        ];
+
+        // Fraternities data functions
+        function searchFrats(query, maxResults = 10) {
+            if (!query || query.trim().length < 2) {
+                return [];
+            }
+
+            const searchTerm = query.toLowerCase().trim();
+            
+            const matches = FRATS_DATA.filter(frat => {
+                const nameMatch = frat.name.toLowerCase().includes(searchTerm);
+                const typeMatch = frat.type.toLowerCase().includes(searchTerm);
+                return nameMatch || typeMatch;
+            });
+
+            matches.sort((a, b) => {
+                const aName = a.name.toLowerCase();
+                const bName = b.name.toLowerCase();
+                
+                if (aName === searchTerm) return -1;
+                if (bName === searchTerm) return 1;
+                
+                const aStarts = aName.startsWith(searchTerm);
+                const bStarts = bName.startsWith(searchTerm);
+                if (aStarts && !bStarts) return -1;
+                if (!aStarts && bStarts) return 1;
+                
+                return aName.localeCompare(bName);
+            });
+
+            return matches.slice(0, maxResults);
+        }
+
+        function getFratByName(name) {
+            return FRATS_DATA.find(frat => frat.name === name) || null;
+        }
+
+        // Expose to window
+        window.FratsData = {
+            searchFrats,
+            getFratByName,
+            FRATS_COUNT: FRATS_DATA.length
+        };
+
+        console.log('Fraternities data loaded:', window.FratsData.FRATS_COUNT, 'organizations');
+
+        // =============================================================================
+        // END FRATERNITIES DATA
         // =============================================================================
         // =============================================================================
         // RIVALRY STATS AGGREGATION FUNCTIONS
@@ -996,6 +1154,8 @@
         // Autocomplete state
         let selectedSchool = null; // Stores { id, name, city, state }
         let selectedEditSchool = null; // For edit mode
+        let selectedFrat = null; // Stores { id, name, type }
+        let selectedEditFrat = null; // For edit mode
         let searchTimeout = null;
 
         // DOM elements
@@ -1062,6 +1222,12 @@
                 } else if (inputId === 'editSchool') {
                     selectedEditSchool = null;
                     input.classList.remove('has-selection');
+                } else if (inputId === 'frat') {
+                    selectedFrat = null;
+                    input.classList.remove('has-selection');
+                } else if (inputId === 'editFrat') {
+                    selectedEditFrat = null;
+                    input.classList.remove('has-selection');
                 }
 
                 // Hide suggestions if query is too short
@@ -1071,18 +1237,33 @@
                     return;
                 }
 
-                // Check if SchoolsData is available
-                if (!window.SchoolsData || !window.SchoolsData.searchSchools) {
-                    console.error('SchoolsData not loaded! Make sure data/schools.js is included.');
-                    suggestionsContainer.innerHTML = '<div class="no-suggestions">School data not loaded. Please refresh the page.</div>';
-                    suggestionsContainer.classList.add('active');
-                    return;
+                // Check which data to use based on inputId
+                const isFratInput = inputId.includes('rat'); // 'frat' or 'editFrat'
+                
+                if (isFratInput) {
+                    // Check if FratsData is available
+                    if (!window.FratsData || !window.FratsData.searchFrats) {
+                        console.error('FratsData not loaded!');
+                        suggestionsContainer.innerHTML = '<div class="no-suggestions">Fraternities data not loaded. Please refresh the page.</div>';
+                        suggestionsContainer.classList.add('active');
+                        return;
+                    }
+                } else {
+                    // Check if SchoolsData is available
+                    if (!window.SchoolsData || !window.SchoolsData.searchSchools) {
+                        console.error('SchoolsData not loaded!');
+                        suggestionsContainer.innerHTML = '<div class="no-suggestions">School data not loaded. Please refresh the page.</div>';
+                        suggestionsContainer.classList.add('active');
+                        return;
+                    }
                 }
 
                 // Debounce search (250ms delay)
                 searchTimeout = setTimeout(() => {
-                    const results = window.SchoolsData.searchSchools(query, 10);
-                    displaySuggestions(results, suggestionsContainer, input, onSelect);
+                    const results = isFratInput 
+                        ? window.FratsData.searchFrats(query, 10)
+                        : window.SchoolsData.searchSchools(query, 10);
+                    displaySuggestions(results, suggestionsContainer, input, onSelect, isFratInput);
                 }, 250);
             });
 
@@ -1136,29 +1317,40 @@
         /**
          * Display autocomplete suggestions
          */
-        function displaySuggestions(results, container, input, onSelect) {
+        function displaySuggestions(results, container, input, onSelect, isFratInput = false) {
             container.innerHTML = '';
 
             if (results.length === 0) {
-                container.innerHTML = '<div class="no-suggestions">No schools found. Try a different search.</div>';
+                const itemType = isFratInput ? 'fraternities/sororities' : 'schools';
+                container.innerHTML = `<div class="no-suggestions">No ${itemType} found. Try a different search.</div>`;
                 container.classList.add('active');
                 return;
             }
 
-            results.forEach(school => {
+            results.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'autocomplete-suggestion';
-                div.innerHTML = `
-                    <div class="suggestion-name">${school.name}</div>
-                    <div class="suggestion-location">${school.city}, ${school.state}</div>
-                `;
+                
+                if (isFratInput) {
+                    // Fraternity/Sorority format
+                    div.innerHTML = `
+                        <div class="suggestion-name">${item.name}</div>
+                        <div class="suggestion-location">${item.type.charAt(0).toUpperCase() + item.type.slice(1)}</div>
+                    `;
+                } else {
+                    // School format
+                    div.innerHTML = `
+                        <div class="suggestion-name">${item.name}</div>
+                        <div class="suggestion-location">${item.city}, ${item.state}</div>
+                    `;
+                }
                 
                 div.addEventListener('click', function() {
-                    input.value = school.name;
+                    input.value = item.name;
                     input.classList.add('has-selection');
                     container.classList.remove('active');
                     container.innerHTML = '';
-                    onSelect(school);
+                    onSelect(item);
                 });
 
                 container.appendChild(div);
@@ -1169,26 +1361,15 @@
 
         // Populate frat dropdown (unchanged)
         function populateDropdowns() {
-            const fratSelect = document.getElementById('frat');
-
-            // Clear existing frat options
-            fratSelect.innerHTML = '<option value="">-- Select your fraternity/sorority --</option>';
-
-            // Add frat options
-            FRATS.forEach(frat => {
-                const option = document.createElement('option');
-                option.value = frat;
-                option.textContent = frat;
-                fratSelect.appendChild(option);
-            });
-
-            // Initialize autocomplete for school input after DOM is ready
+            // Initialize autocomplete for both inputs after DOM is ready
             setTimeout(() => {
                 const schoolInput = document.getElementById('school');
                 const schoolSuggestions = document.getElementById('schoolSuggestions');
+                const fratInput = document.getElementById('frat');
+                const fratSuggestions = document.getElementById('fratSuggestions');
                 
                 if (schoolInput && schoolSuggestions) {
-                    console.log('Initializing join form autocomplete');
+                    console.log('Initializing join form school autocomplete');
                     initializeAutocomplete('school', 'schoolSuggestions', (school) => {
                         selectedSchool = school;
                         console.log('School selected:', school);
@@ -1196,9 +1377,19 @@
                 } else {
                     console.error('School autocomplete elements not found');
                 }
+                
+                if (fratInput && fratSuggestions) {
+                    console.log('Initializing join form frat autocomplete');
+                    initializeAutocomplete('frat', 'fratSuggestions', (frat) => {
+                        selectedFrat = frat;
+                        console.log('Frat selected:', frat);
+                    });
+                } else {
+                    console.error('Frat autocomplete elements not found');
+                }
             }, 100);
 
-            console.log('Populated frat dropdown');
+            console.log('Initializing autocompletes');
         }
 
         // Load user data from Firestore
@@ -1448,6 +1639,7 @@
             // Wait for autocomplete to initialize, then pre-fill
             setTimeout(() => {
                 const editSchoolInput = document.getElementById('editSchool');
+                const editFratInput = document.getElementById('editFrat');
                 
                 // Pre-fill school autocomplete with current value
                 editSchoolInput.value = userData.school;
@@ -1465,8 +1657,21 @@
                     selectedEditSchool = { id: 'legacy', name: userData.school, city: '', state: '' };
                 }
                 
-                // Pre-fill frat dropdown
-                document.getElementById('editFrat').value = userData.frat;
+                // Pre-fill frat autocomplete with current value
+                editFratInput.value = userData.frat;
+                editFratInput.classList.add('has-selection');
+                
+                // Set selected frat object (find by name)
+                if (window.FratsData && window.FratsData.getFratByName) {
+                    selectedEditFrat = window.FratsData.getFratByName(userData.frat);
+                    if (!selectedEditFrat) {
+                        // If not found in new list, create a placeholder
+                        selectedEditFrat = { id: 'legacy', name: userData.frat, type: '' };
+                    }
+                } else {
+                    // Fallback if FratsData not loaded
+                    selectedEditFrat = { id: 'legacy', name: userData.frat, type: '' };
+                }
             }, 200);
             
             // Clear any previous messages
@@ -1495,32 +1700,31 @@
          * Populate the edit mode dropdowns
          */
         function populateEditDropdowns() {
-            const editFratSelect = document.getElementById('editFrat');
-            
-            // Clear existing frat options
-            editFratSelect.innerHTML = '<option value="">-- Select your fraternity/sorority --</option>';
-            
-            // Add frat options
-            FRATS.forEach(frat => {
-                const option = document.createElement('option');
-                option.value = frat;
-                option.textContent = frat;
-                editFratSelect.appendChild(option);
-            });
-
-            // Initialize autocomplete for edit school input after DOM is ready
+            // Initialize autocomplete for both edit inputs after DOM is ready
             setTimeout(() => {
                 const editSchoolInput = document.getElementById('editSchool');
                 const editSchoolSuggestions = document.getElementById('editSchoolSuggestions');
+                const editFratInput = document.getElementById('editFrat');
+                const editFratSuggestions = document.getElementById('editFratSuggestions');
                 
                 if (editSchoolInput && editSchoolSuggestions) {
-                    console.log('Initializing edit form autocomplete');
+                    console.log('Initializing edit form school autocomplete');
                     initializeAutocomplete('editSchool', 'editSchoolSuggestions', (school) => {
                         selectedEditSchool = school;
                         console.log('Edit school selected:', school);
                     });
                 } else {
                     console.error('Edit school autocomplete elements not found');
+                }
+                
+                if (editFratInput && editFratSuggestions) {
+                    console.log('Initializing edit form frat autocomplete');
+                    initializeAutocomplete('editFrat', 'editFratSuggestions', (frat) => {
+                        selectedEditFrat = frat;
+                        console.log('Edit frat selected:', frat);
+                    });
+                } else {
+                    console.error('Edit frat autocomplete elements not found');
                 }
             }, 100);
         }
@@ -1556,14 +1760,15 @@
                 return;
             }
 
-            const newSchool = selectedEditSchool.name; // Use the selected school's name
-            const newFrat = document.getElementById('editFrat').value;
-
-            // Validate frat selection
-            if (!newFrat || newFrat === '') {
-                showEditMessage('Please select a fraternity/sorority', 'error');
+            // Validate frat selection from autocomplete
+            if (!selectedEditFrat || !selectedEditFrat.name) {
+                showEditMessage('Please select a fraternity/sorority from the list', 'error');
+                document.getElementById('editFrat').classList.add('error');
                 return;
             }
+
+            const newSchool = selectedEditSchool.name; // Use the selected school's name
+            const newFrat = selectedEditFrat.name; // Use the selected frat's name
 
             const saveButton = document.getElementById('saveButton');
             saveButton.disabled = true;
@@ -1636,14 +1841,15 @@
                 return;
             }
 
-            const school = selectedSchool.name; // Use the selected school's name
-            const frat = document.getElementById('frat').value;
-
-            // Validate frat selection
-            if (!frat || frat === '') {
-                showMessage('Please select a fraternity/sorority', 'error');
+            // Validate frat selection from autocomplete
+            if (!selectedFrat || !selectedFrat.name) {
+                showMessage('Please select a fraternity/sorority from the list', 'error');
+                document.getElementById('frat').classList.add('error');
                 return;
             }
+
+            const school = selectedSchool.name; // Use the selected school's name
+            const frat = selectedFrat.name; // Use the selected frat's name
 
             joinButton.disabled = true;
             joinButton.textContent = 'Joining...';
