@@ -245,9 +245,15 @@ app.post('/api/send-verification-email', async (req, res) => {
   try {
     const { uid, email } = req.body;
     
-    console.log('📧 Sending verification email request:', { uid, email });
+    console.log('📧 ===== SEND VERIFICATION EMAIL REQUEST =====');
+    console.log('Timestamp:', new Date().toISOString());
+    console.log('UID:', uid);
+    console.log('Email:', email);
+    console.log('BREVO_SECRET_KEY exists:', !!process.env.BREVO_SECRET_KEY);
+    console.log('BREVO_SECRET_KEY length:', process.env.BREVO_SECRET_KEY?.length);
     
     if (!uid || !email) {
+      console.error('❌ Missing parameters');
       return res.status(400).json({ 
         error: 'UID and email are required',
         code: 'MISSING_PARAMETERS'
@@ -260,6 +266,9 @@ app.post('/api/send-verification-email', async (req, res) => {
       new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
     );
     
+    console.log('🔑 Generated token (first 10 chars):', token.substring(0, 10) + '...');
+    console.log('⏰ Expires at:', expiresAt.toDate().toISOString());
+    
     // Store verification token in Firestore
     await db.collection('emailVerifications').doc(uid).set({
       email: email,
@@ -270,23 +279,25 @@ app.post('/api/send-verification-email', async (req, res) => {
       uid: uid
     });
     
-    console.log('✅ Verification token stored for:', uid);
+    console.log('✅ Verification token stored in Firestore');
     
     // Generate verification link
     const verificationLink = generateVerificationLink(token);
+    console.log('🔗 Verification link:', verificationLink);
     
     // Send email
+    console.log('📤 Calling sendVerificationEmail...');
     const emailSent = await sendVerificationEmail(email, verificationLink);
     
     if (!emailSent) {
-      console.error('❌ Failed to send verification email');
+      console.error('❌ sendVerificationEmail returned false');
       return res.status(500).json({
         error: 'Failed to send verification email',
         code: 'EMAIL_SEND_FAILED'
       });
     }
     
-    console.log('✅ Verification email sent successfully to:', email);
+    console.log('✅ ===== VERIFICATION EMAIL SENT SUCCESSFULLY =====');
     
     res.json({
       success: true,
@@ -295,7 +306,9 @@ app.post('/api/send-verification-email', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Error sending verification email:', error);
+    console.error('❌ ===== ERROR IN SEND VERIFICATION EMAIL =====');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       error: 'Failed to send verification email',
       code: 'SEND_VERIFICATION_FAILED',
@@ -945,7 +958,73 @@ async function sendVerificationEmail(email, verificationLink) {
     return false;
   }
   
+  console.log('📧 Attempting to send email to:', email);
+  console.log('🔗 Verification link:', verificationLink);
+  
   try {
+    const emailData = {
+      sender: {
+        name: 'Sky Fall Game',
+        email: 'no-reply@topseat.us'
+      },
+      to: [
+        {
+          email: email,
+          name: email.split('@')[0]
+        }
+      ],
+      subject: 'Verify Your Sky Fall Account',
+      htmlContent: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%); 
+                     color: white; padding: 30px; text-align: center; border-radius: 8px; }
+            .content { background: #f9fafb; padding: 30px; margin: 20px 0; border-radius: 8px; }
+            .button { display: inline-block; padding: 14px 32px; background: #2563eb; 
+                     color: white !important; text-decoration: none; border-radius: 8px; 
+                     font-weight: bold; margin: 20px 0; }
+            .footer { text-align: center; color: #6b7280; font-size: 14px; margin-top: 30px; }
+            .link-text { word-break: break-all; color: #2563eb; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin: 0; color: white;">🎮 Welcome to Sky Fall!</h1>
+            </div>
+            <div class="content">
+              <h2 style="color: #1f2937;">Verify Your Email Address</h2>
+              <p>Thanks for signing up! Please verify your email address to start playing and earning rewards.</p>
+              <p>Click the button below to verify your account:</p>
+              <div style="text-align: center;">
+                <a href="${verificationLink}" class="button">Verify Email Address</a>
+              </div>
+              <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+                Or copy and paste this link: <br>
+                <span class="link-text">${verificationLink}</span>
+              </p>
+              <p style="margin-top: 20px; color: #dc2626; font-weight: bold;">
+                ⚠️ This link expires in 24 hours.
+              </p>
+            </div>
+            <div class="footer">
+              <p>If you didn't create this account, you can safely ignore this email.</p>
+              <p>© 2026 Sky Fall - Dodge obstacles, collect coins, win prizes!</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+    
+    console.log('📤 Sending email via Brevo API...');
+    console.log('Email payload:', JSON.stringify(emailData, null, 2));
+    
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -953,76 +1032,24 @@ async function sendVerificationEmail(email, verificationLink) {
         'api-key': BREVO_API_KEY,
         'content-type': 'application/json'
       },
-      body: JSON.stringify({
-        sender: {
-          name: 'Sky Fall',
-          email: 'noreply@topseat.us'
-        },
-        to: [
-          {
-            email: email,
-            name: email.split('@')[0]
-          }
-        ],
-        subject: 'Verify Your Sky Fall Account',
-        htmlContent: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%); 
-                       color: white; padding: 30px; text-align: center; border-radius: 8px; }
-              .content { background: #f9fafb; padding: 30px; margin: 20px 0; border-radius: 8px; }
-              .button { display: inline-block; padding: 14px 32px; background: #2563eb; 
-                       color: white !important; text-decoration: none; border-radius: 8px; 
-                       font-weight: bold; margin: 20px 0; }
-              .footer { text-align: center; color: #6b7280; font-size: 14px; margin-top: 30px; }
-              .link-text { word-break: break-all; color: #2563eb; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h1 style="margin: 0; color: white;">🎮 Welcome to Sky Fall!</h1>
-              </div>
-              <div class="content">
-                <h2 style="color: #1f2937;">Verify Your Email Address</h2>
-                <p>Thanks for signing up! Please verify your email address to start playing and earning rewards.</p>
-                <p>Click the button below to verify your account:</p>
-                <div style="text-align: center;">
-                  <a href="${verificationLink}" class="button">Verify Email Address</a>
-                </div>
-                <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
-                  Or copy and paste this link: <br>
-                  <span class="link-text">${verificationLink}</span>
-                </p>
-                <p style="margin-top: 20px; color: #dc2626; font-weight: bold;">
-                  ⚠️ This link expires in 24 hours.
-                </p>
-              </div>
-              <div class="footer">
-                <p>If you didn't create this account, you can safely ignore this email.</p>
-                <p>© 2026 Sky Fall - Dodge obstacles, collect coins, win prizes!</p>
-              </div>
-            </div>
-          </body>
-          </html>
-        `
-      })
+      body: JSON.stringify(emailData)
     });
     
+    console.log('📬 Brevo response status:', response.status);
+    
+    const responseText = await response.text();
+    console.log('📬 Brevo response body:', responseText);
+    
     if (response.ok) {
-      console.log('✅ Verification email sent to:', email);
+      console.log('✅ Verification email sent successfully to:', email);
       return true;
     } else {
-      const error = await response.json();
-      console.error('❌ Error sending email:', error);
+      console.error('❌ Brevo API error:', responseText);
       return false;
     }
   } catch (error) {
     console.error('❌ Error sending verification email:', error);
+    console.error('Error details:', error.message);
     return false;
   }
 }
