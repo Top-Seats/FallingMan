@@ -17,6 +17,116 @@ const db = admin.firestore();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ===== RATE LIMITING HELPERS =====
+
+async function checkSignupRateLimit(ip) {
+  const now = Date.now();
+  const oneHourAgo = now - (60 * 60 * 1000);
+  const oneDayAgo = now - (24 * 60 * 60 * 1000);
+  
+  const signupsRef = db.collection('signupRateLimits').doc(ip);
+  const signupsDoc = await signupsRef.get();
+  
+  if (!signupsDoc.exists()) {
+    return { allowed: true, hourly: 0, daily: 0 };
+  }
+  
+  const data = signupsDoc.data();
+  const timestamps = data.timestamps || [];
+  
+  // Filter to get counts
+  const hourlyCount = timestamps.filter(t => t > oneHourAgo).length;
+  const dailyCount = timestamps.filter(t => t > oneDayAgo).length;
+  
+  // Rate limits: 5 per hour, 20 per day
+  if (hourlyCount >= 5) {
+    return { allowed: false, hourly: hourlyCount, daily: dailyCount, reason: 'hourly_limit' };
+  }
+  
+  if (dailyCount >= 20) {
+    return { allowed: false, hourly: hourlyCount, daily: dailyCount, reason: 'daily_limit' };
+  }
+  
+  return { allowed: true, hourly: hourlyCount, daily: dailyCount };
+}
+
+async function recordSignup(ip) {
+  const now = Date.now();
+  const oneDayAgo = now - (24 * 60 * 60 * 1000);
+  
+  const signupsRef = db.collection('signupRateLimits').doc(ip);
+  const signupsDoc = await signupsRef.get();
+  
+  let timestamps = [];
+  if (signupsDoc.exists()) {
+    timestamps = signupsDoc.data().timestamps || [];
+  }
+  
+  // Add current timestamp and filter old ones
+  timestamps.push(now);
+  timestamps = timestamps.filter(t => t > oneDayAgo);
+  
+  await signupsRef.set({
+    ip: ip,
+    timestamps: timestamps,
+    lastUpdated: admin.firestore.Timestamp.now()
+  });
+}
+
+async function checkReferralRateLimit(referrerUid) {
+  const now = Date.now();
+  const oneDayAgo = now - (24 * 60 * 60 * 1000);
+  
+  const limitsRef = db.collection('referralRateLimits').doc(referrerUid);
+  const limitsDoc = await limitsRef.get();
+  
+  if (!limitsDoc.exists()) {
+    return { allowed: true, count: 0 };
+  }
+  
+  const data = limitsDoc.data();
+  const timestamps = data.timestamps || [];
+  const dailyCount = timestamps.filter(t => t > oneDayAgo).length;
+  
+  // Max 10 referral rewards per day
+  if (dailyCount >= 10) {
+    return { allowed: false, count: dailyCount };
+  }
+  
+  return { allowed: true, count: dailyCount };
+}
+
+async function recordReferralReward(referrerUid) {
+  const now = Date.now();
+  const oneDayAgo = now - (24 * 60 * 60 * 1000);
+  
+  const limitsRef = db.collection('referralRateLimits').doc(referrerUid);
+  const limitsDoc = await limitsRef.get();
+  
+  let timestamps = [];
+  if (limitsDoc.exists()) {
+    timestamps = limitsDoc.data().timestamps || [];
+  }
+  
+  timestamps.push(now);
+  timestamps = timestamps.filter(t => t > oneDayAgo);
+  
+  await limitsRef.set({
+    uid: referrerUid,
+    timestamps: timestamps,
+    lastUpdated: admin.firestore.Timestamp.now()
+  });
+}
+
+// Helper to get client IP
+function getClientIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0].trim() || 
+         req.headers['x-real-ip'] || 
+         req.connection.remoteAddress || 
+         req.socket.remoteAddress || 
+         'unknown';
+}
+
 // Price ID to product mapping
 const PRICE_MAPPINGS = {
   'price_1SlzlbLPyAORHNqqW1GGqcPx': { type: 'attempts', amount: 10 },  // 10 attempts $0.99
@@ -63,6 +173,69 @@ app.get('/health', (req, res) => {
 });
 
 // ===== EMAIL VERIFICATION ENDPOINTS =====
+
+/**
+ * POST /api/track-signup
+ * Track signup with IP and device ID for abuse prevention
+ */
+app.post('/api/track-signup', async (req, res) => {
+  try {
+    const { uid, email, deviceId } = req.body;
+    const ip = getClientIp(req);
+    
+    console.log('📊 Tracking signup:', { uid, email, ip, deviceId });
+    
+    if (!uid || !email) {
+      return res.status(400).json({ 
+        error: 'UID and email are required',
+        code: 'MISSING_PARAMETERS'
+      });
+    }
+    
+    // Check signup rate limit for this IP
+    const rateLimit = await checkSignupRateLimit(ip);
+    
+    if (!rateLimit.allowed) {
+      console.log('❌ Signup rate limit exceeded:', { ip, ...rateLimit });
+      return res.status(429).json({
+        error: rateLimit.reason === 'hourly_limit' 
+          ? 'Too many signups from this location. Please try again in an hour.'
+          : 'Daily signup limit reached. Please try again tomorrow.',
+        code: 'RATE_LIMIT_EXCEEDED',
+        hourly: rateLimit.hourly,
+        daily: rateLimit.daily
+      });
+    }
+    
+    // Record this signup
+    await recordSignup(ip);
+    
+    // Update user document with IP and device ID
+    await db.collection('users').doc(uid).update({
+      signupIp: ip,
+      deviceId: deviceId || 'unknown',
+      lastActivityAt: admin.firestore.Timestamp.now()
+    });
+    
+    console.log('✅ Signup tracked successfully');
+    
+    res.json({
+      success: true,
+      rateLimit: {
+        hourly: rateLimit.hourly + 1,
+        daily: rateLimit.daily + 1
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Error tracking signup:', error);
+    res.status(500).json({
+      error: 'Failed to track signup',
+      code: 'TRACKING_FAILED',
+      details: error.message
+    });
+  }
+});
 
 /**
  * POST /api/send-verification-email
@@ -248,6 +421,150 @@ app.get('/api/verify-email', async (req, res) => {
       </body>
       </html>
     `);
+  }
+});
+
+/**
+ * POST /api/process-referral-reward
+ * Process referral reward with abuse checks
+ */
+app.post('/api/process-referral-reward', async (req, res) => {
+  try {
+    const { uid, referrerUid } = req.body;
+    
+    console.log('🎁 Processing referral reward:', { uid, referrerUid });
+    
+    if (!uid || !referrerUid) {
+      return res.status(400).json({
+        error: 'UID and referrer UID are required',
+        code: 'MISSING_PARAMETERS'
+      });
+    }
+    
+    // Get user and referrer data
+    const userDoc = await db.collection('users').doc(uid).get();
+    const referrerDoc = await db.collection('users').doc(referrerUid).get();
+    
+    if (!userDoc.exists() || !referrerDoc.exists()) {
+      return res.status(404).json({
+        error: 'User or referrer not found',
+        code: 'NOT_FOUND'
+      });
+    }
+    
+    const userData = userDoc.data();
+    const referrerData = referrerDoc.data();
+    
+    // Check if already rewarded
+    if (userData.referralRewarded) {
+      return res.status(400).json({
+        error: 'Referral already rewarded',
+        code: 'ALREADY_REWARDED'
+      });
+    }
+    
+    // Check email verification
+    if (!userData.emailVerified) {
+      return res.status(400).json({
+        error: 'Email not verified',
+        code: 'EMAIL_NOT_VERIFIED'
+      });
+    }
+    
+    // Check referral status
+    if (userData.referralStatus !== 'verified') {
+      return res.status(400).json({
+        error: 'Referral not verified',
+        code: 'REFERRAL_NOT_VERIFIED'
+      });
+    }
+    
+    // ABUSE CHECK 1: Same IP
+    if (userData.signupIp && referrerData.signupIp && 
+        userData.signupIp === referrerData.signupIp) {
+      console.log('⚠️ Same IP detected, marking as suspicious');
+      await db.collection('users').doc(uid).update({
+        referralStatus: 'suspicious_same_ip',
+        suspiciousFlags: admin.firestore.FieldValue.arrayUnion('same_ip')
+      });
+      return res.status(400).json({
+        error: 'Suspicious referral activity detected',
+        code: 'SUSPICIOUS_SAME_IP'
+      });
+    }
+    
+    // ABUSE CHECK 2: Same device ID
+    if (userData.deviceId && referrerData.deviceId && 
+        userData.deviceId === referrerData.deviceId &&
+        userData.deviceId !== 'unknown') {
+      console.log('⚠️ Same device detected, marking as suspicious');
+      await db.collection('users').doc(uid).update({
+        referralStatus: 'suspicious_same_device',
+        suspiciousFlags: admin.firestore.FieldValue.arrayUnion('same_device')
+      });
+      return res.status(400).json({
+        error: 'Suspicious referral activity detected',
+        code: 'SUSPICIOUS_SAME_DEVICE'
+      });
+    }
+    
+    // ABUSE CHECK 3: Email similarity (same email with numbers)
+    const userEmailBase = userData.email.split('@')[0].replace(/[0-9]/g, '');
+    const referrerEmailBase = referrerData.email.split('@')[0].replace(/[0-9]/g, '');
+    if (userEmailBase === referrerEmailBase && userEmailBase.length > 3) {
+      console.log('⚠️ Similar emails detected, marking as suspicious');
+      await db.collection('users').doc(uid).update({
+        referralStatus: 'suspicious_similar_email',
+        suspiciousFlags: admin.firestore.FieldValue.arrayUnion('similar_email')
+      });
+      return res.status(400).json({
+        error: 'Suspicious referral activity detected',
+        code: 'SUSPICIOUS_SIMILAR_EMAIL'
+      });
+    }
+    
+    // Check referrer's rate limit (max 10 rewards per day)
+    const rateLimit = await checkReferralRateLimit(referrerUid);
+    if (!rateLimit.allowed) {
+      console.log('❌ Referral rate limit exceeded for referrer:', referrerUid);
+      return res.status(429).json({
+        error: 'Referral reward limit reached. Maximum 10 per day.',
+        code: 'REFERRAL_RATE_LIMIT',
+        count: rateLimit.count
+      });
+    }
+    
+    // All checks passed - grant reward
+    const currentBonus = referrerData.bonusAttempts || 0;
+    
+    await db.collection('users').doc(referrerUid).update({
+      bonusAttempts: currentBonus + 5
+    });
+    
+    await db.collection('users').doc(uid).update({
+      referralStatus: 'rewarded',
+      referralRewarded: true,
+      referralRewardedAt: admin.firestore.Timestamp.now()
+    });
+    
+    // Record this reward for rate limiting
+    await recordReferralReward(referrerUid);
+    
+    console.log('✅ Referral reward granted successfully');
+    
+    res.json({
+      success: true,
+      message: 'Referral reward granted',
+      bonusAttempts: currentBonus + 5
+    });
+    
+  } catch (error) {
+    console.error('❌ Error processing referral reward:', error);
+    res.status(500).json({
+      error: 'Failed to process referral reward',
+      code: 'REWARD_FAILED',
+      details: error.message
+    });
   }
 });
 

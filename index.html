@@ -1093,7 +1093,7 @@
                 
                 const userData = userDoc.data();
                 
-                // Check if user has a pending referral
+                // Check if user has a verified referral
                 if (userData.referralStatus !== 'verified') {
                     console.log('No verified referral to process');
                     return;
@@ -1111,7 +1111,6 @@
                     return;
                 }
                 
-                // All conditions met - reward the referrer!
                 const referrerUid = userData.referredByUid;
                 
                 if (!referrerUid) {
@@ -1119,35 +1118,39 @@
                     return;
                 }
                 
-                console.log('🎁 Processing referral reward for referrer:', referrerUid);
+                console.log('🎁 Processing referral reward via backend');
                 
-                await runTransaction(db, async (transaction) => {
-                    const referrerRef = doc(db, 'users', referrerUid);
-                    const referrerSnapshot = await transaction.get(referrerRef);
+                // Call backend API with abuse checks
+                try {
+                    const response = await fetch('https://fallingman.onrender.com/api/process-referral-reward', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            uid: currentUser.uid,
+                            referrerUid: referrerUid
+                        })
+                    });
                     
-                    if (!referrerSnapshot.exists()) {
-                        throw new Error('Referrer not found');
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('✅ Referral reward granted:', data);
+                    } else {
+                        const error = await response.json();
+                        console.log('⚠️ Referral reward denied:', error.code);
+                        
+                        // Update local status if suspicious
+                        if (error.code.includes('SUSPICIOUS')) {
+                            console.log('⚠️ Suspicious referral activity detected');
+                        }
                     }
-                    
-                    const currentBonus = referrerSnapshot.data().bonusAttempts || 0;
-                    
-                    // Award 5 bonus attempts
-                    transaction.update(referrerRef, {
-                        bonusAttempts: currentBonus + 5
-                    });
-                    
-                    // Mark referral as rewarded
-                    transaction.update(userRef, {
-                        referralStatus: 'rewarded',
-                        referralRewarded: true,
-                        referralRewardedAt: Timestamp.now()
-                    });
-                });
-                
-                console.log('✅ Referral reward granted! +5 attempts to referrer');
+                } catch (apiError) {
+                    console.error('❌ Error calling referral API:', apiError);
+                }
                 
             } catch (error) {
-                console.error('Error rewarding referral:', error);
+                console.error('Error checking referral:', error);
             }
         }
 
