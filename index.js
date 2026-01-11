@@ -964,7 +964,7 @@ async function sendVerificationEmail(email, verificationLink) {
   const emailData = {
     sender: {
       name: 'Sky Fall Game',
-      email: 'no-reply@topseat.us'
+      email: 'contact@brevo.com'
     },
     to: [
       {
