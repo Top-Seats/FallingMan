@@ -1066,7 +1066,61 @@
                     return;
                 }
                 
-                // Award 5 bonus attempts to referrer using transaction
+                // CRITICAL CHANGE: Mark referral as PENDING, don't award yet
+                await setDoc(newUserRef, {
+                    referredByCode: referralCode,
+                    referredByUid: referrerUid, // Track who referred them
+                    referredAt: Timestamp.now(),
+                    referralStatus: 'pending' // PENDING until email verified + first game played
+                }, { merge: true });
+                
+                console.log('✅ Referral marked as PENDING (will reward after verification + gameplay)');
+                
+            } catch (error) {
+                console.error('Error processing referral:', error);
+            }
+        }
+
+        // Check and reward referral after email verification + first gameplay
+        async function checkAndRewardReferral() {
+            if (!currentUser) return;
+            
+            try {
+                const userRef = doc(db, 'users', currentUser.uid);
+                const userDoc = await getDoc(userRef);
+                
+                if (!userDoc.exists()) return;
+                
+                const userData = userDoc.data();
+                
+                // Check if user has a pending referral
+                if (userData.referralStatus !== 'verified') {
+                    console.log('No verified referral to process');
+                    return;
+                }
+                
+                // Check if email is verified
+                if (!userData.emailVerified) {
+                    console.log('Email not verified, cannot reward referral yet');
+                    return;
+                }
+                
+                // Check if referral already rewarded
+                if (userData.referralRewarded) {
+                    console.log('Referral already rewarded');
+                    return;
+                }
+                
+                // All conditions met - reward the referrer!
+                const referrerUid = userData.referredByUid;
+                
+                if (!referrerUid) {
+                    console.log('No referrer UID found');
+                    return;
+                }
+                
+                console.log('🎁 Processing referral reward for referrer:', referrerUid);
+                
                 await runTransaction(db, async (transaction) => {
                     const referrerRef = doc(db, 'users', referrerUid);
                     const referrerSnapshot = await transaction.get(referrerRef);
@@ -1076,20 +1130,24 @@
                     }
                     
                     const currentBonus = referrerSnapshot.data().bonusAttempts || 0;
+                    
+                    // Award 5 bonus attempts
                     transaction.update(referrerRef, {
                         bonusAttempts: currentBonus + 5
                     });
                     
-                    // Mark new user as referred
-                    transaction.update(newUserRef, {
-                        referredByCode: referralCode,
-                        referredAt: Timestamp.now()
+                    // Mark referral as rewarded
+                    transaction.update(userRef, {
+                        referralStatus: 'rewarded',
+                        referralRewarded: true,
+                        referralRewardedAt: Timestamp.now()
                     });
                 });
                 
-                console.log('[OK] Referral successful! Awarded 5 bonus attempts to referrer');
+                console.log('✅ Referral reward granted! +5 attempts to referrer');
+                
             } catch (error) {
-                console.error('Error processing referral:', error);
+                console.error('Error rewarding referral:', error);
             }
         }
 
@@ -1469,6 +1527,52 @@
                 return;
             }
             
+            // CRITICAL: Check email verification before allowing gameplay
+            try {
+                const userRef = doc(db, 'users', currentUser.uid);
+                const userDoc = await getDoc(userRef);
+                
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    
+                    // Block gameplay if email not verified
+                    if (userData.emailVerified === false || !userData.emailVerified) {
+                        console.log('❌ Email not verified, blocking gameplay');
+                        
+                        // Show verification warning
+                        alert('⚠️ Please verify your email before playing!\n\nCheck your inbox for the verification link.\n\nOnce verified, refresh this page to start playing.');
+                        
+                        // Redirect to a verification reminder page or show modal
+                        showIntro = true;
+                        introScreen.style.display = 'flex';
+                        
+                        // Update intro screen to show verification message
+                        introScreen.innerHTML = `
+                            <div class="screen-content">
+                                <h1>📧 Verify Your Email</h1>
+                                <p>Before you can play, please verify your email address.</p>
+                                <p><strong>Check your inbox</strong> for the verification link we sent to:</p>
+                                <p style="color: #fbbf24; font-weight: bold;">${currentUser.email}</p>
+                                <p style="margin-top: 30px;">Once verified, refresh this page to start playing!</p>
+                                <button onclick="location.reload()" class="btn btn-start" style="margin-top: 20px;">
+                                    🔄 Refresh Page
+                                </button>
+                                <p style="margin-top: 20px; font-size: 14px; color: #9ca3af;">
+                                    Didn't receive the email? Check your spam folder or contact support.
+                                </p>
+                            </div>
+                        `;
+                        
+                        return; // Block game start
+                    }
+                    
+                    console.log('✅ Email verified, allowing gameplay');
+                }
+            } catch (error) {
+                console.error('Error checking email verification:', error);
+                // Allow gameplay on error to avoid blocking legitimate users
+            }
+            
             // Load progress from Firestore before starting
             await loadProgress();
             
@@ -1498,8 +1602,12 @@
             try {
                 await incrementAttempts();
                 
-                // Reload attempts display (will show âˆž for Pro users)
+                // Reload attempts display (will show ∞ for Pro users)
                 await loadAttemptsData();
+                
+                // CRITICAL: Check if user completed referral requirements after first attempt
+                await checkAndRewardReferral();
+                
             } catch (error) {
                 console.error('Failed to increment attempts:', error);
                 // If we hit max attempts, show the no attempts screen and stop any game loop

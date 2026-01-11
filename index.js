@@ -1,6 +1,7 @@
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const admin = require('firebase-admin');
+const crypto = require('crypto');
 
 // Initialize Firebase Admin with environment variables
 admin.initializeApp({
@@ -61,6 +62,195 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// ===== EMAIL VERIFICATION ENDPOINTS =====
+
+/**
+ * POST /api/send-verification-email
+ * Send verification email to user after signup
+ */
+app.post('/api/send-verification-email', async (req, res) => {
+  try {
+    const { uid, email } = req.body;
+    
+    console.log('📧 Sending verification email request:', { uid, email });
+    
+    if (!uid || !email) {
+      return res.status(400).json({ 
+        error: 'UID and email are required',
+        code: 'MISSING_PARAMETERS'
+      });
+    }
+    
+    // Generate verification token
+    const token = generateVerificationToken();
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+    );
+    
+    // Store verification token in Firestore
+    await db.collection('emailVerifications').doc(uid).set({
+      email: email,
+      token: token,
+      createdAt: admin.firestore.Timestamp.now(),
+      expiresAt: expiresAt,
+      verified: false,
+      uid: uid
+    });
+    
+    console.log('✅ Verification token stored for:', uid);
+    
+    // Generate verification link
+    const verificationLink = generateVerificationLink(token);
+    
+    // Send email
+    const emailSent = await sendVerificationEmail(email, verificationLink);
+    
+    if (!emailSent) {
+      console.error('❌ Failed to send verification email');
+      return res.status(500).json({
+        error: 'Failed to send verification email',
+        code: 'EMAIL_SEND_FAILED'
+      });
+    }
+    
+    console.log('✅ Verification email sent successfully to:', email);
+    
+    res.json({
+      success: true,
+      message: 'Verification email sent! Please check your inbox.',
+      emailSent: true
+    });
+    
+  } catch (error) {
+    console.error('❌ Error sending verification email:', error);
+    res.status(500).json({
+      error: 'Failed to send verification email',
+      code: 'SEND_VERIFICATION_FAILED',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/verify-email
+ * Verify email using token from link
+ */
+app.get('/api/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+    
+    console.log('🔍 Email verification attempt with token');
+    
+    if (!token) {
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Verification Error</title></head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+          <h1>❌ Invalid Verification Link</h1>
+          <p>The verification link is missing required information.</p>
+          <a href="https://topseat.us" style="color: #2563eb;">Return to Sky Fall</a>
+        </body>
+        </html>
+      `);
+    }
+    
+    // Find verification record by token
+    const verificationsRef = db.collection('emailVerifications');
+    const snapshot = await verificationsRef.where('token', '==', token).limit(1).get();
+    
+    if (snapshot.empty) {
+      console.log('❌ Invalid or expired token');
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Verification Error</title></head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+          <h1>❌ Invalid Verification Link</h1>
+          <p>This verification link is invalid or has expired.</p>
+          <p>Please request a new verification email.</p>
+          <a href="https://topseat.us/signup.html" style="color: #2563eb;">Sign Up Again</a>
+        </body>
+        </html>
+      `);
+    }
+    
+    const verificationDoc = snapshot.docs[0];
+    const verification = verificationDoc.data();
+    
+    // Check if already verified
+    if (verification.verified) {
+      console.log('✅ Email already verified, redirecting');
+      return res.redirect('/verification-success.html');
+    }
+    
+    // Check if expired
+    const now = Date.now();
+    const expiresAt = verification.expiresAt.toMillis();
+    
+    if (now > expiresAt) {
+      console.log('❌ Token expired');
+      return res.status(400).send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Link Expired</title></head>
+        <body style="font-family: Arial; text-align: center; padding: 50px;">
+          <h1>⏰ Verification Link Expired</h1>
+          <p>This verification link has expired (24 hours).</p>
+          <p>Please sign up again to receive a new link.</p>
+          <a href="https://topseat.us/signup.html" style="color: #2563eb;">Sign Up Again</a>
+        </body>
+        </html>
+      `);
+    }
+    
+    // Mark as verified in verification collection
+    await verificationDoc.ref.update({
+      verified: true,
+      verifiedAt: admin.firestore.Timestamp.now()
+    });
+    
+    // Update user document
+    await db.collection('users').doc(verification.uid).update({
+      emailVerified: true,
+      emailVerifiedAt: admin.firestore.Timestamp.now()
+    });
+    
+    console.log('✅ Email verified successfully for user:', verification.uid);
+    
+    // Check if user has a referral to process
+    const userDoc = await db.collection('users').doc(verification.uid).get();
+    const userData = userDoc.data();
+    
+    if (userData && userData.referredByCode) {
+      console.log('🎁 User has referral code, marking as ready to process:', userData.referredByCode);
+      
+      // Update referral status to "verified" (will be processed after first game)
+      await db.collection('users').doc(verification.uid).update({
+        referralStatus: 'verified' // Changed from 'pending' to 'verified'
+      });
+    }
+    
+    // Redirect to success page
+    res.redirect('/verification-success.html');
+    
+  } catch (error) {
+    console.error('❌ Verification error:', error);
+    res.status(500).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Verification Error</title></head>
+      <body style="font-family: Arial; text-align: center; padding: 50px;">
+        <h1>❌ Verification Failed</h1>
+        <p>An error occurred while verifying your email.</p>
+        <p>Error: ${error.message}</p>
+        <a href="https://topseat.us" style="color: #2563eb;">Return to Sky Fall</a>
+      </body>
+      </html>
+    `);
+  }
+});
+
 // Create checkout session
 app.post('/create-checkout-session', async (req, res) => {
   console.log('=== CHECKOUT SESSION REQUEST RECEIVED ===');
@@ -76,17 +266,17 @@ app.post('/create-checkout-session', async (req, res) => {
     console.log('- userEmail:', userEmail);
 
     if (!priceId) {
-      console.error('❌ ERROR: Missing priceId');
+      console.error('âŒ ERROR: Missing priceId');
       return res.status(400).json({ error: 'priceId is required' });
     }
 
     if (!userEmail) {
-      console.error('❌ ERROR: Missing userEmail');
+      console.error('âŒ ERROR: Missing userEmail');
       return res.status(400).json({ error: 'userEmail is required' });
     }
 
     const sessionMode = mode || 'payment';
-    console.log('✅ Validation passed. Creating Stripe session...');
+    console.log('âœ… Validation passed. Creating Stripe session...');
     console.log('Session mode:', sessionMode);
 
     const session = await stripe.checkout.sessions.create({
@@ -108,7 +298,7 @@ app.post('/create-checkout-session', async (req, res) => {
       }
     });
 
-    console.log('✅ Stripe session created successfully!');
+    console.log('âœ… Stripe session created successfully!');
     console.log('Session ID:', session.id);
     console.log('Session URL:', session.url);
 
@@ -117,7 +307,7 @@ app.post('/create-checkout-session', async (req, res) => {
       url: session.url,
     });
   } catch (error) {
-    console.error('❌ ERROR creating checkout session:', error.message);
+    console.error('âŒ ERROR creating checkout session:', error.message);
     console.error('Error type:', error.type);
     console.error('Error code:', error.code);
     console.error('Full error:', error);
@@ -168,7 +358,7 @@ async function addBonusAttempts(userId, amount) {
       });
     }
     
-    console.log(`✅ Added ${amount} bonus attempts to user ${userId}`);
+    console.log(`âœ… Added ${amount} bonus attempts to user ${userId}`);
     return true;
   } catch (error) {
     console.error('Error adding bonus attempts:', error);
@@ -195,7 +385,7 @@ async function updateSubscriptionStatus(userId, status) {
       });
     }
     
-    console.log(`✅ Updated subscription to ${status} for user ${userId}`);
+    console.log(`âœ… Updated subscription to ${status} for user ${userId}`);
     return true;
   } catch (error) {
     console.error('Error updating subscription:', error);
@@ -213,19 +403,19 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
-    console.error('⚠️ Webhook signature verification failed:', err.message);
+    console.error('âš ï¸ Webhook signature verification failed:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('🔔 WEBHOOK EVENT RECEIVED:', event.type);
+  console.log('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”');
+  console.log('ðŸ”” WEBHOOK EVENT RECEIVED:', event.type);
   console.log('Timestamp:', new Date().toISOString());
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”');
 
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
-        console.log('💳 Processing successful payment...');
+        console.log('ðŸ’³ Processing successful payment...');
         
         const session = event.data.object;
         console.log('Session ID:', session.id);
@@ -238,64 +428,64 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
         console.log('Price ID:', priceId);
         
         if (!userEmail) {
-          console.error('❌ ERROR: No user email found in session');
+          console.error('âŒ ERROR: No user email found in session');
           break;
         }
         
         if (!priceId) {
-          console.error('❌ ERROR: No price ID found in metadata');
+          console.error('âŒ ERROR: No price ID found in metadata');
           break;
         }
         
-        console.log('🔍 Looking up user in Firestore...');
+        console.log('ðŸ” Looking up user in Firestore...');
         const user = await findUserByEmail(userEmail);
         
         if (!user) {
-          console.error('❌ ERROR: User not found in Firestore:', userEmail);
+          console.error('âŒ ERROR: User not found in Firestore:', userEmail);
           break;
         }
         
-        console.log('✅ Found user:', user.id);
+        console.log('âœ… Found user:', user.id);
         console.log('User data:', JSON.stringify(user.data));
         
-        console.log('🔍 Looking up product info...');
+        console.log('ðŸ” Looking up product info...');
         const productInfo = PRICE_MAPPINGS[priceId];
         
         if (!productInfo) {
-          console.error('❌ ERROR: Unknown price ID:', priceId);
+          console.error('âŒ ERROR: Unknown price ID:', priceId);
           console.log('Available price IDs:', Object.keys(PRICE_MAPPINGS));
           break;
         }
         
-        console.log('✅ Product info:', JSON.stringify(productInfo));
+        console.log('âœ… Product info:', JSON.stringify(productInfo));
         
         // Update Firestore based on product type
         if (productInfo.type === 'attempts') {
-          console.log(`📦 Adding ${productInfo.amount} bonus attempts...`);
+          console.log(`ðŸ“¦ Adding ${productInfo.amount} bonus attempts...`);
           const success = await addBonusAttempts(user.id, productInfo.amount);
           if (success) {
-            console.log(`✅ SUCCESS: Added ${productInfo.amount} bonus attempts to ${userEmail}`);
+            console.log(`âœ… SUCCESS: Added ${productInfo.amount} bonus attempts to ${userEmail}`);
           } else {
-            console.error(`❌ FAILED: Could not add bonus attempts`);
+            console.error(`âŒ FAILED: Could not add bonus attempts`);
           }
         } else if (productInfo.type === 'subscription') {
-          console.log(`⭐ Activating ${productInfo.plan} subscription...`);
+          console.log(`â­ Activating ${productInfo.plan} subscription...`);
           const success = await updateSubscriptionStatus(user.id, 'active');
           if (success) {
-            console.log(`✅ SUCCESS: Activated ${productInfo.plan} subscription for ${userEmail}`);
+            console.log(`âœ… SUCCESS: Activated ${productInfo.plan} subscription for ${userEmail}`);
           } else {
-            console.error(`❌ FAILED: Could not activate subscription`);
+            console.error(`âŒ FAILED: Could not activate subscription`);
           }
         }
         
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('✅ Webhook processing completed successfully');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”');
+        console.log('âœ… Webhook processing completed successfully');
+        console.log('â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”');
         break;
       }
       
       case 'customer.subscription.deleted': {
-        console.log('❌ Processing subscription cancellation...');
+        console.log('âŒ Processing subscription cancellation...');
         
         const subscription = event.data.object;
         console.log('Subscription ID:', subscription.id);
@@ -307,21 +497,21 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
         if (customer.email) {
           const user = await findUserByEmail(customer.email);
           if (user) {
-            console.log('✅ Found user:', user.id);
+            console.log('âœ… Found user:', user.id);
             await updateSubscriptionStatus(user.id, 'cancelled');
-            console.log(`✅ Deactivated subscription for ${customer.email}`);
+            console.log(`âœ… Deactivated subscription for ${customer.email}`);
           } else {
-            console.error('❌ User not found:', customer.email);
+            console.error('âŒ User not found:', customer.email);
           }
         }
         break;
       }
       
       default:
-        console.log(`ℹ️ Unhandled event type: ${event.type}`);
+        console.log(`â„¹ï¸ Unhandled event type: ${event.type}`);
     }
   } catch (error) {
-    console.error('❌ ERROR processing webhook:', error);
+    console.error('âŒ ERROR processing webhook:', error);
     console.error('Error stack:', error.stack);
     return res.status(500).json({ error: 'Webhook processing failed', details: error.message });
   }
@@ -332,3 +522,113 @@ app.post('/webhook', express.raw({type: 'application/json'}), async (req, res) =
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+// ===== EMAIL VERIFICATION FUNCTIONS =====
+
+/**
+ * Generate secure verification token
+ */
+function generateVerificationToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+/**
+ * Generate verification link
+ */
+function generateVerificationLink(token) {
+  const baseUrl = process.env.BASE_URL || 'https://topseat.us';
+  return `${baseUrl}/verify-email?token=${token}`;
+}
+
+/**
+ * Send verification email using Brevo
+ */
+async function sendVerificationEmail(email, verificationLink) {
+  const BREVO_API_KEY = process.env.BREVO_SECRET_KEY;
+  
+  if (!BREVO_API_KEY) {
+    console.error('❌ BREVO_SECRET_KEY environment variable not set');
+    return false;
+  }
+  
+  try {
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': BREVO_API_KEY,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: {
+          name: 'Sky Fall',
+          email: 'noreply@topseat.us'
+        },
+        to: [
+          {
+            email: email,
+            name: email.split('@')[0]
+          }
+        ],
+        subject: 'Verify Your Sky Fall Account',
+        htmlContent: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%); 
+                       color: white; padding: 30px; text-align: center; border-radius: 8px; }
+              .content { background: #f9fafb; padding: 30px; margin: 20px 0; border-radius: 8px; }
+              .button { display: inline-block; padding: 14px 32px; background: #2563eb; 
+                       color: white !important; text-decoration: none; border-radius: 8px; 
+                       font-weight: bold; margin: 20px 0; }
+              .footer { text-align: center; color: #6b7280; font-size: 14px; margin-top: 30px; }
+              .link-text { word-break: break-all; color: #2563eb; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1 style="margin: 0; color: white;">🎮 Welcome to Sky Fall!</h1>
+              </div>
+              <div class="content">
+                <h2 style="color: #1f2937;">Verify Your Email Address</h2>
+                <p>Thanks for signing up! Please verify your email address to start playing and earning rewards.</p>
+                <p>Click the button below to verify your account:</p>
+                <div style="text-align: center;">
+                  <a href="${verificationLink}" class="button">Verify Email Address</a>
+                </div>
+                <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+                  Or copy and paste this link: <br>
+                  <span class="link-text">${verificationLink}</span>
+                </p>
+                <p style="margin-top: 20px; color: #dc2626; font-weight: bold;">
+                  ⚠️ This link expires in 24 hours.
+                </p>
+              </div>
+              <div class="footer">
+                <p>If you didn't create this account, you can safely ignore this email.</p>
+                <p>© 2026 Sky Fall - Dodge obstacles, collect coins, win prizes!</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+      })
+    });
+    
+    if (response.ok) {
+      console.log('✅ Verification email sent to:', email);
+      return true;
+    } else {
+      const error = await response.json();
+      console.error('❌ Error sending email:', error);
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Error sending verification email:', error);
+    return false;
+  }
+}
