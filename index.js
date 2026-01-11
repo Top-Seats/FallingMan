@@ -425,6 +425,83 @@ app.get('/api/verify-email', async (req, res) => {
 });
 
 /**
+ * POST /api/resend-verification
+ * Resend verification email for unverified users
+ */
+app.post('/api/resend-verification', async (req, res) => {
+  try {
+    const { uid, email } = req.body;
+    
+    console.log('📧 Resending verification email:', { uid, email });
+    
+    if (!uid || !email) {
+      return res.status(400).json({
+        error: 'UID and email are required',
+        code: 'MISSING_PARAMETERS'
+      });
+    }
+    
+    // Check if user exists and is unverified
+    const userDoc = await db.collection('users').doc(uid).get();
+    if (!userDoc.exists()) {
+      return res.status(404).json({
+        error: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+    
+    if (userDoc.data().emailVerified) {
+      return res.status(400).json({
+        error: 'Email already verified',
+        code: 'ALREADY_VERIFIED'
+      });
+    }
+    
+    // Generate new token
+    const token = generateVerificationToken();
+    const expiresAt = admin.firestore.Timestamp.fromDate(
+      new Date(Date.now() + 24 * 60 * 60 * 1000)
+    );
+    
+    // Update verification record
+    await db.collection('emailVerifications').doc(uid).set({
+      email: email,
+      token: token,
+      createdAt: admin.firestore.Timestamp.now(),
+      expiresAt: expiresAt,
+      verified: false,
+      uid: uid
+    });
+    
+    // Send email
+    const verificationLink = generateVerificationLink(token);
+    const emailSent = await sendVerificationEmail(email, verificationLink);
+    
+    if (!emailSent) {
+      return res.status(500).json({
+        error: 'Failed to send verification email',
+        code: 'EMAIL_SEND_FAILED'
+      });
+    }
+    
+    console.log('✅ Verification email resent successfully');
+    
+    res.json({
+      success: true,
+      message: 'Verification email sent! Check your inbox.'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error resending verification:', error);
+    res.status(500).json({
+      error: 'Failed to resend verification email',
+      code: 'RESEND_FAILED',
+      details: error.message
+    });
+  }
+});
+
+/**
  * POST /api/process-referral-reward
  * Process referral reward with abuse checks
  */
