@@ -204,6 +204,61 @@ app.use((req, res, next) => {
   }
 });
 
+// ===== TEST SMTP ENDPOINT (FOR DEBUGGING) =====
+
+app.get('/test-smtp', async (req, res) => {
+  console.log('🧪 Testing SMTP connection...');
+  
+  const emailTransporter = initializeEmailTransporter();
+  
+  if (!emailTransporter) {
+    return res.status(500).json({
+      success: false,
+      error: 'Email transporter not initialized. Check SMTP_USERNAME and SMTP_PASSWORD env vars.'
+    });
+  }
+  
+  try {
+    // Verify SMTP connection
+    console.log('🔌 Verifying SMTP connection...');
+    await emailTransporter.verify();
+    console.log('✅ SMTP connection verified!');
+    
+    // Send test email
+    const testEmail = req.query.email || 'test@example.com';
+    console.log('📧 Sending test email to:', testEmail);
+    
+    const info = await emailTransporter.sendMail({
+      from: {
+        name: 'TopSeat',
+        address: 'jmkwco@gmail.com'
+      },
+      to: testEmail,
+      subject: 'Test Email from Sky Fall',
+      html: '<h1>Test Email</h1><p>If you receive this, SMTP is working correctly!</p>'
+    });
+    
+    console.log('✅ Test email sent!');
+    console.log('Message ID:', info.messageId);
+    
+    res.json({
+      success: true,
+      message: 'SMTP test successful',
+      messageId: info.messageId,
+      recipient: testEmail
+    });
+    
+  } catch (error) {
+    console.error('❌ SMTP test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      code: error.code,
+      response: error.response
+    });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -991,15 +1046,20 @@ function generateVerificationLink(token) {
  * Send verification email using Brevo SMTP
  */
 async function sendVerificationEmail(email, verificationLink) {
+  console.log('========================================');
+  console.log('📧 SEND VERIFICATION EMAIL');
+  console.log('========================================');
+  console.log('To:', email);
+  console.log('Link:', verificationLink);
+  console.log('Timestamp:', new Date().toISOString());
+  
   const emailTransporter = initializeEmailTransporter();
   
   if (!emailTransporter) {
     console.error('❌ Email transporter not initialized');
+    console.error('Missing: SMTP_USERNAME or SMTP_PASSWORD');
     return false;
   }
-  
-  console.log('📧 Attempting to send verification email to:', email);
-  console.log('🔗 Verification link:', verificationLink);
   
   const mailOptions = {
     from: {
@@ -1056,23 +1116,43 @@ async function sendVerificationEmail(email, verificationLink) {
     `
   };
   
+  console.log('📋 Mail Options:');
+  console.log('  From:', mailOptions.from);
+  console.log('  To:', mailOptions.to);
+  console.log('  Subject:', mailOptions.subject);
+  
   try {
     console.log('📤 Sending email via Brevo SMTP...');
     const info = await emailTransporter.sendMail(mailOptions);
     
-    console.log('✅ Email sent successfully!');
+    console.log('========================================');
+    console.log('✅ EMAIL SENT SUCCESSFULLY');
+    console.log('========================================');
     console.log('Message ID:', info.messageId);
     console.log('Response:', info.response);
+    console.log('Accepted:', info.accepted);
+    console.log('Rejected:', info.rejected);
+    console.log('========================================');
     
     return true;
   } catch (error) {
-    console.error('❌ Error sending email via SMTP:', error);
-    console.error('Error code:', error.code);
-    console.error('Error message:', error.message);
+    console.log('========================================');
+    console.error('❌ EMAIL SEND FAILED');
+    console.log('========================================');
+    console.error('Error Type:', error.name);
+    console.error('Error Code:', error.code);
+    console.error('Error Message:', error.message);
     
     if (error.response) {
       console.error('SMTP Response:', error.response);
     }
+    
+    if (error.responseCode) {
+      console.error('Response Code:', error.responseCode);
+    }
+    
+    console.error('Full Error:', JSON.stringify(error, null, 2));
+    console.log('========================================');
     
     return false;
   }
