@@ -491,12 +491,12 @@
         import { getFirestore, doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyBGxJH2AkAn_r5sn1sn3jcqKw3K9vWBIqw",
+            apiKey: "AIzaSyBic7ZeUQDgPZqORn0t6-wUCGHfEPASE10",
             authDomain: "topseat-d1d5d.firebaseapp.com",
             projectId: "topseat-d1d5d",
             storageBucket: "topseat-d1d5d.firebasestorage.app",
-            messagingSenderId: "1004828488653",
-            appId: "1:1004828488653:web:2b0b4e8f7b3f7e8f7e8f7e"
+            messagingSenderId: "770306321288",
+            appId: "1:770306321288:web:0e768acffc4d189672283d"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -684,6 +684,8 @@
 
             } catch (error) {
                 console.error('Signup error:', error);
+                console.error('Error code:', error.code);
+                console.error('Error message:', error.message);
 
                 let errorMsg = 'Something went wrong. Please try again.';
 
@@ -696,6 +698,11 @@
                     errorMsg = 'Please enter a valid email address';
                 } else if (error.code === 'auth/network-request-failed') {
                     errorMsg = 'Network error. Please check your connection';
+                } else if (error.code === 'auth/weak-password') {
+                    errorMsg = 'Password is too weak. Please use at least 6 characters';
+                } else if (error.code) {
+                    // Show the actual error code for debugging
+                    errorMsg = `Error: ${error.message || error.code}`;
                 }
 
                 showError(errorMsg);
